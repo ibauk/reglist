@@ -26,7 +26,7 @@ import (
 )
 
 var sqlName *string = flag.String("sql", "rblrdata.db", "Path to SQLite database")
-var xlsName *string = flag.String("xls", "2021-RBLR-Registration-List.xlsx", "Path to output XLSX")
+var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
 
 func proper(x string) string {
 	var xx = strings.TrimSpace(x)
@@ -37,15 +37,8 @@ func proper(x string) string {
 
 }
 
-func main() {
-	flag.Parse()
+func showRecordCount(db *sql.DB) {
 
-	fmt.Printf("IBAUK Reglist v0.0.1\nCopyright (c) 2021 Bob Stammers\n\n")
-
-	db, err := sql.Open("sqlite3", *sqlName)
-	if err != nil {
-		log.Fatal(err)
-	}
 	rows, err := db.Query("SELECT count(*) FROM entrants;")
 	if err != nil {
 		log.Fatal(err)
@@ -58,16 +51,52 @@ func main() {
 	}
 	fmt.Printf("%v entrants loaded\n", n)
 	rows.Close()
+}
+
+func formatSheet(f *excelize.File, sheetName string) {
+
+	f.SetPageLayout(
+		sheetName,
+		excelize.PageLayoutOrientation(excelize.OrientationLandscape),
+		excelize.PageLayoutPaperSize(10),
+		excelize.FitToHeight(2),
+		excelize.FitToWidth(2),
+	)
+	f.SetPageMargins(sheetName,
+		excelize.PageMarginBottom(0.2),
+		excelize.PageMarginFooter(0.2),
+		excelize.PageMarginHeader(0.2),
+		excelize.PageMarginLeft(0.2),
+		excelize.PageMarginRight(0.2),
+		excelize.PageMarginTop(0.2),
+	)
+
+}
+
+func main() {
+	flag.Parse()
+
+	fmt.Printf("IBAUK Reglist v0.0.2\nCopyright (c) 2021 Bob Stammers\n\n")
+
+	db, err := sql.Open("sqlite3", *sqlName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	showRecordCount(db)
+
 	f := excelize.NewFile()
 	f.SetDefaultFont("Arial")
 	// First sheet is called Sheet1
-
-	// Create a new sheet.
+	formatSheet(f, "Sheet1")
 	f.NewSheet("Sheet2")
+	formatSheet(f, "Sheet2")
 	f.NewSheet("Sheet3")
+	formatSheet(f, "Sheet3")
+
 	tshirtsizes := [...]string{"S", "M", "L", "XL", "XXL"}
 
-	styleT, _ := f.NewStyle(`{
+	// Totals
+	styleT, _ := f.NewStyle(`{	
 		"alignment":
 		{
 			"horizontal": "center",
@@ -86,10 +115,11 @@ func main() {
 			"italic": false,
 			"family": "Arial",
 			"size": 12,
-			"color": "black"
+			"color": "000000"
 		}
 	}`)
 
+	// Header, vertical
 	styleH, _ := f.NewStyle(`{
 		"alignment":
 		{
@@ -103,8 +133,9 @@ func main() {
 			"vertical": "",
 			"wrap_text": true
 		},
-		"fill":{"type":"pattern","color":["#E0EBF5"],"pattern":1}	}`)
+		"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
 
+	// Header, horizontal
 	styleH2, _ := f.NewStyle(`{
 			"alignment":
 			{
@@ -115,11 +146,12 @@ func main() {
 				"relative_indent": 1,
 				"shrink_to_fit": true,
 				"text_rotation": 0,
-				"vertical": "",
+				"vertical": "center",
 				"wrap_text": true
 			},
-			"fill":{"type":"pattern","color":["#E0EBF5"],"pattern":1}	}`)
+			"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
 
+	// Data
 	styleV, _ := f.NewStyle(`{
 		"alignment":
 		{
@@ -132,7 +164,45 @@ func main() {
 			"text_rotation": 0,
 			"vertical": "",
 			"wrap_text": true
-		}
+		},
+		"border": [
+			{
+				"type": "left",
+				"color": "000000",
+				"style": 1
+			},
+			{
+				"type": "bottom",
+				"color": "000000",
+				"style": 1
+			},
+			{
+				"type": "right",
+				"color": "000000",
+				"style": 1
+			}]		
+	}`)
+
+	// Open data
+	styleV2, _ := f.NewStyle(`{
+		"alignment":
+		{
+			"horizontal": "center",
+			"ident": 1,
+			"justify_last_line": true,
+			"reading_order": 0,
+			"relative_indent": 1,
+			"shrink_to_fit": true,
+			"text_rotation": 0,
+			"vertical": "",
+			"wrap_text": true
+		},
+		"border": [
+			{
+				"type": "bottom",
+				"color": "000000",
+				"style": 1
+			}]		
 	}`)
 
 	err = f.SetCellStyle("Sheet1", "A1", "A1", styleH2)
@@ -246,6 +316,7 @@ func main() {
 	err = f.SetCellStyle("Sheet1", "A2", "D"+srowx, styleV)
 	err = f.SetCellStyle("Sheet2", "A2", "A"+srowx, styleV)
 	err = f.SetCellStyle("Sheet1", "K2", "X"+srowx, styleV)
+	err = f.SetCellStyle("Sheet1", "E2", "J"+srowx, styleV2)
 
 	srow++ // Leave a gap before totals
 
@@ -262,14 +333,16 @@ func main() {
 	f.SetColWidth("Sheet1", "A", "A", 5)
 	f.SetColWidth("Sheet2", "A", "A", 5)
 
-	f.SetCellValue("Sheet1", "B1", "Registered")
-	f.SetCellValue("Sheet1", "C1", "Started")
-	f.SetCellValue("Sheet1", "D1", "Finished")
+	f.SetCellValue("Sheet1", "B1", " Registered")
+	f.SetCellValue("Sheet1", "C1", " Started")
+	f.SetCellValue("Sheet1", "D1", " Finished")
 	f.SetColWidth("Sheet1", "B", "D", 3)
 
 	f.SetCellValue("Sheet1", "E1", "Rider(first)")
 	f.SetCellValue("Sheet1", "F1", "Rider(last)")
-	f.SetColWidth("Sheet1", "E", "F", 15)
+	f.SetColWidth("Sheet1", "E", "E", 12)
+	f.SetColWidth("Sheet1", "F", "F", 12)
+	f.SetColWidth("Sheet1", "G", "G", 8)
 
 	f.SetCellValue("Sheet2", "B1", "Rider(first)")
 	f.SetCellValue("Sheet2", "C1", "Rider(last)")
@@ -283,38 +356,38 @@ func main() {
 
 	f.SetCellValue("Sheet3", "A1", "Make")
 	f.SetCellValue("Sheet3", "B1", "Number")
-	f.SetColWidth("Sheet3", "A", "A", 12)
+	f.SetColWidth("Sheet3", "A", "A", 10)
 
 	f.SetCellValue("Sheet1", "G1", "IBA #")
 	f.SetCellValue("Sheet1", "H1", "Pillion")
-	f.SetColWidth("Sheet1", "H", "H", 20)
+	f.SetColWidth("Sheet1", "H", "H", 12)
 
 	f.SetCellValue("Sheet1", "I1", "Make")
-	f.SetColWidth("Sheet1", "I", "I", 12)
+	f.SetColWidth("Sheet1", "I", "I", 10)
 	f.SetCellValue("Sheet1", "J1", "Model")
-	f.SetColWidth("Sheet1", "J", "J", 25)
-	f.SetCellValue("Sheet1", "K1", "Miles to Squires")
+	f.SetColWidth("Sheet1", "J", "J", 20)
+	f.SetCellValue("Sheet1", "K1", " Miles to Squires")
 	f.SetColWidth("Sheet1", "K", "K", 5)
 
-	f.SetCellValue("Sheet1", "L1", "Camping")
-	f.SetColWidth("Sheet1", "L", "X", 4)
+	f.SetCellValue("Sheet1", "L1", " Camping")
+	f.SetColWidth("Sheet1", "L", "X", 3)
 
-	f.SetCellValue("Sheet1", "M1", "A-NC")
-	f.SetCellValue("Sheet1", "N1", "B-NAC")
-	f.SetCellValue("Sheet1", "O1", "C-SC")
-	f.SetCellValue("Sheet1", "P1", "D-SAC")
-	f.SetCellValue("Sheet1", "Q1", "E-500C")
-	f.SetCellValue("Sheet1", "R1", "F-500AC")
+	f.SetCellValue("Sheet1", "M1", " A-NC")
+	f.SetCellValue("Sheet1", "N1", " B-NAC")
+	f.SetCellValue("Sheet1", "O1", " C-SC")
+	f.SetCellValue("Sheet1", "P1", " D-SAC")
+	f.SetCellValue("Sheet1", "Q1", " E-500C")
+	f.SetCellValue("Sheet1", "R1", " F-500AC")
 
-	f.SetCellValue("Sheet1", "S1", "T-shirt S")
-	f.SetCellValue("Sheet1", "T1", "T-shirt M")
-	f.SetCellValue("Sheet1", "U1", "T-shirt L")
-	f.SetCellValue("Sheet1", "V1", "T-shirt XL")
-	f.SetCellValue("Sheet1", "W1", "T-shirt XXL")
+	f.SetCellValue("Sheet1", "S1", " T-shirt S")
+	f.SetCellValue("Sheet1", "T1", " T-shirt M")
+	f.SetCellValue("Sheet1", "U1", " T-shirt L")
+	f.SetCellValue("Sheet1", "V1", " T-shirt XL")
+	f.SetCellValue("Sheet1", "W1", " T-shirt XXL")
 
-	f.SetCellValue("Sheet1", "X1", "Patches")
+	f.SetCellValue("Sheet1", "X1", " Patches")
 
-	f.SetRowHeight("Sheet1", 1, 100)
+	f.SetRowHeight("Sheet1", 1, 70)
 	f.SetRowHeight("Sheet2", 1, 20)
 	f.SetRowHeight("Sheet3", 1, 20)
 
@@ -341,7 +414,7 @@ func main() {
 	f.SetSheetName("Sheet2", "NOK sheets")
 	f.SetSheetName("Sheet3", "Bikes")
 	// Save spreadsheet by the given path.
-	if err := f.SaveAs("Book1.xlsx"); err != nil {
+	if err := f.SaveAs(*xlsName); err != nil {
 		fmt.Println(err)
 	}
 }
