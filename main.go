@@ -14,9 +14,12 @@ package main
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,8 +28,27 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+var csvName *string = flag.String("csv", "rblrentrants.csv", "Path to CSV downloaded from Wufoo")
 var sqlName *string = flag.String("sql", "rblrdata.db", "Path to SQLite database")
 var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
+var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
+
+const dbFields = `"EntryId","Date_Created","Created_By","Date_Updated","Updated_By",
+					"IP_Address","Last_Page_Accessed","Completion_Status","RiderName","RiderLast","RiderIBANumber",
+					"Is_this_your_first_RBLR1000",
+					"Are_you_riding_with_a_pillion","PillionName","PillionLast","PillionIBANumber",
+					"Pillion_first_RBLR1000",
+					"Rider_Address","Address_Line_2","City","State_Province_Region","Postal_Zip_Code","Country",
+					"Mobilephone","Email",
+					"BikeMakeModel","Registration","Odometer_counts",
+					"Emergencycontactname","Emergencycontactnumber","Emergencycontactrelationship",
+					"ao_BCM","Detailed_Instructions",
+					"RBLR1000Tshirt1","RBLR1000Tshirt2",
+					"WhichRoute",
+					"FreeCamping","MilestravelledToSquires",
+					"Admin_markers","Sponsorshipmoney",
+					"Patches","Cash",
+					"PaymentStatus","PaymentTotal","Payment_Currency","Payment_Confirmation","Payment_Merchant"`
 
 const regsheet = "Sheet1"
 const noksheet = "Sheet2"
@@ -36,9 +58,9 @@ const paysheet = "Sheet4"
 const sqlx = `SELECT RiderName,RiderLast,ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
 BikeMakeModel,round(MilesTravelledToSquires),
-FreeCamping,WhichRoute,RBLR1000Tshirt1,RBLR1000Tshirt2,ifnull(Patches,'0'),
+FreeCamping,WhichRoute,RBLR1000Tshirt1,RBLR1000Tshirt2,ifnull(Patches,'0'),ifnull(Cash,'0'),
 Mobilephone,Emergencycontactname,Emergencycontactnumber,Emergencycontactrelationship,
-EntryId,PaymentTotal,Sponsorshipmoney,Paymentstatus
+EntryId,PaymentTotal,Sponsorshipmoney,PaymentStatus
 FROM entrants ORDER BY upper(RiderLast),upper(RiderName)`
 
 func proper(x string) string {
@@ -89,11 +111,14 @@ func formatSheet(f *excelize.File, sheetName string) {
 func main() {
 	flag.Parse()
 
-	fmt.Printf("IBAUK Reglist v0.0.2\nCopyright (c) 2021 Bob Stammers\n\n")
+	fmt.Printf("IBAUK Reglist v0.0.3\nCopyright (c) 2021 Bob Stammers\n\n")
 
 	db, err := sql.Open("sqlite3", *sqlName)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if !*noCSV {
+		loadCSVFile(db)
 	}
 	showRecordCount(db)
 
@@ -220,12 +245,28 @@ func main() {
 			}]		
 	}`)
 
-	err = f.SetCellStyle(regsheet, "A1", "A1", styleH2)
-	err = f.SetCellStyle(regsheet, "E1", "J1", styleH2)
-	err = f.SetCellStyle(noksheet, "A1", "G1", styleH2)
+	// styleW for highlighting, particularly errorneous, cells
+	styleW, _ := f.NewStyle(`{ 
+		"alignment":
+		{
+			"horizontal": "center",
+			"ident": 1,
+			"justify_last_line": true,
+			"reading_order": 0,
+			"relative_indent": 1,
+			"shrink_to_fit": true,
+			"text_rotation": 0,
+			"vertical": "",
+			"wrap_text": true
+		},
+		"fill":{"type":"pattern","color":["#ffff00"],"pattern":1}	}`)
 
-	err = f.SetCellStyle(bikesheet, "A1", "B1", styleH2)
-	err = f.SetCellStyle(paysheet, "A1", "J1", styleH2)
+	f.SetCellStyle(regsheet, "A1", "A1", styleH2)
+	f.SetCellStyle(regsheet, "E1", "J1", styleH2)
+	f.SetCellStyle(noksheet, "A1", "G1", styleH2)
+
+	f.SetCellStyle(bikesheet, "A1", "B1", styleH2)
+	f.SetCellStyle(paysheet, "A1", "K1", styleH2)
 
 	rows1, err1 := db.Query(sqlx)
 	if err1 != nil {
@@ -245,15 +286,15 @@ func main() {
 		var RiderIBA string
 		var PillionFirst, PillionLast, PillionIBA string
 		var Bike, Make, Model string
-		var Miles, EntryID int
+		var Miles, EntryID string
 		var Camp, Route, T1, T2, Patches string
 		var Mobile, NokName, NokNumber, NokRelation string
-		var PayTot float64
-		var Sponsor, Paid string
+		var PayTot string
+		var Sponsor, Paid, Cash string
 		tshirts := [...]int{0, 0, 0, 0, 0}
 
 		err2 := rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
-			&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches,
+			&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
 			&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Sponsor, &Paid)
 		if err2 != nil {
 			log.Fatal(err2)
@@ -288,9 +329,9 @@ func main() {
 			bikes = append(bikes, bm)
 		}
 		Model = strings.Join(tmp[1:], " ")
-		f.SetCellInt(regsheet, "A"+srowx, EntryID)
-		f.SetCellInt(noksheet, "A"+srowx, EntryID)
-		f.SetCellInt(paysheet, "A"+srowx, EntryID)
+		f.SetCellInt(regsheet, "A"+srowx, intval(EntryID))
+		f.SetCellInt(noksheet, "A"+srowx, intval(EntryID))
+		f.SetCellInt(paysheet, "A"+srowx, intval(EntryID))
 		f.SetCellValue(regsheet, "E"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(regsheet, "F"+srowx, strings.Title(RiderLast))
 		f.SetCellValue(noksheet, "B"+srowx, strings.Title(RiderFirst))
@@ -341,34 +382,46 @@ func main() {
 			f.SetCellInt(paysheet, "H"+srowx, 50)
 		}
 
-		f.SetCellInt(paysheet, "I"+srowx, int(PayTot))
+		intCash := intval(Cash)
+		if intCash != 0 {
+			f.SetCellInt(paysheet, "I"+srowx, intval(Cash))
+		}
+		f.SetCellInt(paysheet, "J"+srowx, intval(PayTot))
 
 		if Paid == "Unpaid" {
-			f.SetCellValue(paysheet, "J"+srowx, "UNPAID")
+			f.SetCellValue(paysheet, "K"+srowx, " UNPAID")
+			f.SetCellStyle(paysheet, "K"+srowx, "K"+srowx, styleW)
+		} else {
+			ff := "sum(I" + srowx + ":J" + srowx + ")-sum(D" + srowx + ":H" + srowx + ")"
+			f.SetCellFormula(paysheet, "K"+srowx, "if("+ff+"=0,\"\","+ff+")")
 		}
-
+		// =IF(A2-A3=0,””,A2-A3)
 		srow++
 	}
 
-	err = f.SetCellStyle(regsheet, "B1", "D1", styleH)
-	err = f.SetCellStyle(regsheet, "K1", "X1", styleH)
-	err = f.SetCellStyle(regsheet, "A2", "D"+srowx, styleV)
-	err = f.SetCellStyle(noksheet, "A2", "A"+srowx, styleV)
-	err = f.SetCellStyle(regsheet, "K2", "X"+srowx, styleV)
-	err = f.SetCellStyle(regsheet, "E2", "J"+srowx, styleV2)
+	f.SetCellStyle(regsheet, "B1", "D1", styleH)
+	f.SetCellStyle(regsheet, "K1", "X1", styleH)
+	f.SetCellStyle(regsheet, "A2", "D"+srowx, styleV)
+	f.SetCellStyle(noksheet, "A2", "A"+srowx, styleV)
+	f.SetCellStyle(regsheet, "K2", "X"+srowx, styleV)
+	f.SetCellStyle(regsheet, "E2", "J"+srowx, styleV2)
 
-	err = f.SetCellStyle(paysheet, "D2", "I"+srowx, styleV)
+	f.SetCellStyle(paysheet, "A2", "A"+srowx, styleV)
+	f.SetCellStyle(paysheet, "D2", "J"+srowx, styleV)
+	f.SetCellStyle(paysheet, "K2", "K"+srowx, styleT)
 
 	srow++ // Leave a gap before totals
 
 	// L to X
 	for _, c := range "LMNOPQRSTUVWX" {
-		f.SetCellFormula(regsheet, string(c)+strconv.Itoa(srow), "=sum("+string(c)+"2:"+string(c)+srowx)
+		ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
+		f.SetCellFormula(regsheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
 		f.SetCellStyle(regsheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
 	}
 
-	for _, c := range "DEFGHI" {
-		f.SetCellFormula(paysheet, string(c)+strconv.Itoa(srow), "=sum("+string(c)+"2:"+string(c)+srowx)
+	for _, c := range "DEFGHIJK" {
+		ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
+		f.SetCellFormula(paysheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
 		f.SetCellStyle(paysheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
 	}
 
@@ -392,7 +445,9 @@ func main() {
 	f.SetCellValue(paysheet, "F1", "T-shirts")
 	f.SetCellValue(paysheet, "G1", "Patches")
 	f.SetCellValue(paysheet, "H1", "Sponsor")
-	f.SetCellValue(paysheet, "I1", "Total")
+	f.SetCellValue(paysheet, "I1", "Cash")
+	f.SetCellValue(paysheet, "J1", "Total")
+	f.SetCellValue(paysheet, "K1", " !!!")
 	f.SetColWidth(paysheet, "B", "B", 12)
 	f.SetColWidth(paysheet, "C", "C", 12)
 	f.SetColWidth(paysheet, "D", "I", 8)
@@ -477,4 +532,85 @@ func main() {
 	if err := f.SaveAs(*xlsName); err != nil {
 		fmt.Println(err)
 	}
+}
+
+func loadCSVFile(db *sql.DB) {
+
+	file, err := os.Open(*csvName)
+	// error - if we have one exit as CSV file not right
+	if err != nil {
+		fmt.Printf("ERROR: %s\n", err)
+		os.Exit(-3)
+	}
+	// now file is open - defer the close of CSV file handle until we return
+	defer file.Close()
+	// connect a CSV reader to the file handle - which is the actual opened
+	// CSV file
+	// TODO : is there an error from this to check?
+	reader := csv.NewReader(file)
+
+	makeSQLTable(db)
+
+	hdrSkipped := false
+
+	for {
+		record, err := reader.Read()
+
+		// if we hit end of file (EOF) or another unexpected error
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+
+		if !hdrSkipped {
+			hdrSkipped = true
+			continue
+		}
+
+		sqlx := "INSERT INTO entrants (" + dbFields + ") VALUES("
+		for i := 0; i < len(record); i++ {
+			if i > 0 {
+				sqlx += ","
+			}
+			if len(record[i]) == 0 || record[i] == "NULL" {
+				sqlx += "null"
+			} else {
+				sqlx += "\"" + record[i] + "\"" // Use " rather than ' as the data might contain single quotes anyway
+			}
+		}
+		sqlx += ");"
+		_, err = db.Exec(sqlx)
+		if err != nil {
+			db.Exec("COMMIT")
+			fmt.Println(sqlx)
+			log.Fatal(err)
+		}
+	}
+
+	db.Exec("COMMIT")
+
+}
+
+func makeSQLTable(db *sql.DB) {
+
+	_, err := db.Exec("DROP TABLE IF EXISTS entrants")
+	if err != nil {
+		log.Fatal(err)
+	}
+	db.Exec("PRAGMA foreign_keys=OFF")
+	db.Exec("BEGIN TRANSACTION")
+	_, err = db.Exec("CREATE TABLE entrants (" + dbFields + ")")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+}
+
+func intval(x string) int {
+
+	n, _ := strconv.Atoi(strings.Replace(x, ".0", "", 1)) // There shouldn't be any decimals on any of the input so ...
+	return n
+
 }
