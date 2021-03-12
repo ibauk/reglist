@@ -384,9 +384,9 @@ func main() {
 
 		intCash := intval(Cash)
 		if intCash != 0 {
-			f.SetCellInt(paysheet, "I"+srowx, intval(Cash))
+			f.SetCellInt(paysheet, "J"+srowx, intval(Cash))
 		}
-		f.SetCellInt(paysheet, "J"+srowx, intval(PayTot))
+		f.SetCellInt(paysheet, "I"+srowx, intval(PayTot))
 
 		if Paid == "Unpaid" {
 			f.SetCellValue(paysheet, "K"+srowx, " UNPAID")
@@ -445,12 +445,14 @@ func main() {
 	f.SetCellValue(paysheet, "F1", "T-shirts")
 	f.SetCellValue(paysheet, "G1", "Patches")
 	f.SetCellValue(paysheet, "H1", "Sponsor")
-	f.SetCellValue(paysheet, "I1", "Cash")
-	f.SetCellValue(paysheet, "J1", "Total")
+	f.SetCellValue(paysheet, "J1", "+Cash")
+	f.SetCellValue(paysheet, "I1", "Paypal")
 	f.SetCellValue(paysheet, "K1", " !!!")
 	f.SetColWidth(paysheet, "B", "B", 12)
 	f.SetColWidth(paysheet, "C", "C", 12)
-	f.SetColWidth(paysheet, "D", "I", 8)
+	f.SetColWidth(paysheet, "D", "H", 8)
+	f.SetColWidth(paysheet, "I", "I", 15)
+	f.SetColWidth(paysheet, "J", "J", 8)
 
 	f.SetCellValue(regsheet, "E1", "Rider(first)")
 	f.SetCellValue(regsheet, "F1", "Rider(last)")
