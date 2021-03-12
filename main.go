@@ -378,24 +378,30 @@ func main() {
 			f.SetCellInt(paysheet, "G"+srowx, 10)
 		}
 
+		Sponsorship := "0"
 		if strings.Contains(Sponsor, "Include") {
-			f.SetCellInt(paysheet, "H"+srowx, 50)
+			Sponsorship = "50"
+			//f.SetCellInt(paysheet, "I"+srowx, 50)
 		}
+		sf := "H" + srowx + "+" + Sponsorship
+		f.SetCellFormula(paysheet, "I"+srowx, "if("+sf+"=0,\"0\","+sf+")")
 
 		intCash := intval(Cash)
-		if intCash != 0 {
-			f.SetCellInt(paysheet, "J"+srowx, intval(Cash))
+		if false && intCash != 0 {
+			f.SetCellInt(paysheet, "K"+srowx, intval(Cash))
 		}
-		f.SetCellInt(paysheet, "I"+srowx, intval(PayTot))
+		//f.SetCellInt(paysheet, "J"+srowx, intval(PayTot))
+		f.SetCellFormula(paysheet, "J"+srowx, "H"+srowx+"+"+strconv.Itoa(intCash)+"+"+strconv.Itoa(intval(PayTot)))
 
 		if Paid == "Unpaid" {
 			f.SetCellValue(paysheet, "K"+srowx, " UNPAID")
 			f.SetCellStyle(paysheet, "K"+srowx, "K"+srowx, styleW)
 		} else {
-			ff := "sum(I" + srowx + ":J" + srowx + ")-sum(D" + srowx + ":H" + srowx + ")"
+			ff := "J" + srowx + "-(sum(D" + srowx + ":G" + srowx + ")+I" + srowx + ")"
 			f.SetCellFormula(paysheet, "K"+srowx, "if("+ff+"=0,\"\","+ff+")")
 		}
 		// =IF(A2-A3=0,””,A2-A3)
+		// =IF(J11-(SUM(D11:G11)+ISBLANK(I11),0,I11))=0,"",J11-(SUM(D11:G11)+ISBLANK(I11),0,I11)))
 		srow++
 	}
 
@@ -419,7 +425,7 @@ func main() {
 		f.SetCellStyle(regsheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
 	}
 
-	for _, c := range "DEFGHIJK" {
+	for _, c := range "DEFGHIJKL" {
 		ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
 		f.SetCellFormula(paysheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
 		f.SetCellStyle(paysheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
@@ -444,15 +450,17 @@ func main() {
 	f.SetCellValue(paysheet, "E1", "Pillion")
 	f.SetCellValue(paysheet, "F1", "T-shirts")
 	f.SetCellValue(paysheet, "G1", "Patches")
-	f.SetCellValue(paysheet, "H1", "Sponsor")
-	f.SetCellValue(paysheet, "J1", "+Cash")
-	f.SetCellValue(paysheet, "I1", "Paypal")
+	f.SetCellValue(paysheet, "H1", "Cheque @ Squires")
+	f.SetCellValue(paysheet, "I1", "Total Sponsorship")
+	//f.SetCellValue(paysheet, "K1", "+Cash")
+	f.SetCellValue(paysheet, "J1", "Total cash")
 	f.SetCellValue(paysheet, "K1", " !!!")
 	f.SetColWidth(paysheet, "B", "B", 12)
 	f.SetColWidth(paysheet, "C", "C", 12)
-	f.SetColWidth(paysheet, "D", "H", 8)
-	f.SetColWidth(paysheet, "I", "I", 15)
-	f.SetColWidth(paysheet, "J", "J", 8)
+	f.SetColWidth(paysheet, "D", "G", 8)
+	f.SetColWidth(paysheet, "H", "J", 15)
+	f.SetColWidth(paysheet, "J", "J", 15)
+	f.SetColWidth(paysheet, "K", "K", 15)
 
 	f.SetCellValue(regsheet, "E1", "Rider(first)")
 	f.SetCellValue(regsheet, "F1", "Rider(last)")
@@ -506,6 +514,7 @@ func main() {
 	f.SetRowHeight(regsheet, 1, 70)
 	f.SetRowHeight(noksheet, 1, 20)
 	f.SetRowHeight(bikesheet, 1, 20)
+	f.SetRowHeight(paysheet, 1, 70)
 
 	sort.Slice(bikes, func(i, j int) bool { return bikes[i].make < bikes[j].make })
 	//fmt.Printf("%v\n", bikes)
@@ -526,10 +535,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	f.SetSheetName(regsheet, "Registration sheets")
-	f.SetSheetName(noksheet, "NOK sheets")
+	f.SetSheetName(regsheet, "Registration")
+	f.SetSheetName(noksheet, "NOK list")
 	f.SetSheetName(bikesheet, "Bikes")
-	f.SetSheetName(paysheet, "Payments")
+	f.SetSheetName(paysheet, "Money")
 	// Save spreadsheet by the given path.
 	if err := f.SaveAs(*xlsName); err != nil {
 		fmt.Println(err)
