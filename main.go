@@ -20,6 +20,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,6 +33,13 @@ var csvName *string = flag.String("csv", "rblrentrants.csv", "Path to CSV downlo
 var sqlName *string = flag.String("sql", "rblrdata.db", "Path to SQLite database")
 var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
+
+const apptitle = "IBAUK Reglist v0.0.4\nCopyright (c) 2021 Bob Stammers\n\n"
+
+const basicEntryFee = 20
+const pillionEntryFee = 10
+
+var tshirtsizes = [...]string{"S", "M", "L", "XL", "XXL"}
 
 const dbFields = `"EntryId","Date_Created","Created_By","Date_Updated","Updated_By",
 					"IP_Address","Last_Page_Accessed","Completion_Status","RiderName","RiderLast","RiderIBANumber",
@@ -90,6 +98,7 @@ func showRecordCount(db *sql.DB) {
 	rows.Close()
 }
 
+// formatSheet sets printed properties include page orientation and margins
 func formatSheet(f *excelize.File, sheetName string) {
 
 	f.SetPageLayout(
@@ -113,7 +122,7 @@ func formatSheet(f *excelize.File, sheetName string) {
 func main() {
 	flag.Parse()
 
-	fmt.Printf("IBAUK Reglist v0.0.3\nCopyright (c) 2021 Bob Stammers\n\n")
+	fmt.Print(apptitle)
 
 	db, err := sql.Open("sqlite3", *sqlName)
 	if err != nil {
@@ -127,7 +136,6 @@ func main() {
 	f := excelize.NewFile()
 
 	initStyles(f)
-	f.SetDefaultFont("Arial")
 	// First sheet is called Sheet1
 	formatSheet(f, regsheet)
 	f.NewSheet(noksheet)
@@ -136,8 +144,6 @@ func main() {
 	formatSheet(f, bikesheet)
 	f.NewSheet(paysheet)
 	formatSheet(f, paysheet)
-
-	tshirtsizes := [...]string{"S", "M", "L", "XL", "XXL"}
 
 	f.SetCellStyle(regsheet, "A1", "A1", styleH2)
 	f.SetCellStyle(regsheet, "E1", "J1", styleH2)
@@ -169,7 +175,12 @@ func main() {
 		var Mobile, NokName, NokNumber, NokRelation string
 		var PayTot string
 		var Sponsor, Paid, Cash string
-		tshirts := [...]int{0, 0, 0, 0, 0}
+
+		// This needs to match the size of the tshirtsizes array
+		var tshirts [len(tshirtsizes)]int
+		for i := 0; i < len(tshirts); i++ {
+			tshirts[i] = 0
+		}
 
 		err2 := rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 			&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
@@ -217,10 +228,10 @@ func main() {
 		f.SetCellValue(paysheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(paysheet, "C"+srowx, strings.Title(RiderLast))
 
-		f.SetCellInt(paysheet, "D"+srowx, 20) // Basic entry fee
+		f.SetCellInt(paysheet, "D"+srowx, basicEntryFee) // Basic entry fee
 
 		if PillionFirst != "" && PillionLast != "" {
-			f.SetCellInt(paysheet, "E"+srowx, 10)
+			f.SetCellInt(paysheet, "E"+srowx, pillionEntryFee)
 		}
 		if tottshirts > 0 {
 			f.SetCellInt(paysheet, "F"+srowx, 10*tottshirts)
@@ -256,11 +267,9 @@ func main() {
 			f.SetCellInt(paysheet, "G"+srowx, 10)
 		}
 
-		Sponsorship := "0"
-		if strings.Contains(Sponsor, "Include") {
-			Sponsorship = "50"
-			//f.SetCellInt(paysheet, "I"+srowx, 50)
-		}
+		// This extracts a number if present from either "Include ..." or "I'll bring ..."
+		Sponsorship := strconv.Itoa(intval(Sponsor)) // "50"
+
 		sf := "H" + srowx + "+" + Sponsorship
 		f.SetCellFormula(paysheet, "I"+srowx, "if("+sf+"=0,\"0\","+sf+")")
 
@@ -278,8 +287,6 @@ func main() {
 			ff := "J" + srowx + "-(sum(D" + srowx + ":G" + srowx + ")+I" + srowx + ")"
 			f.SetCellFormula(paysheet, "K"+srowx, "if("+ff+"=0,\"\","+ff+")")
 		}
-		// =IF(A2-A3=0,””,A2-A3)
-		// =IF(J11-(SUM(D11:G11)+ISBLANK(I11),0,I11))=0,"",J11-(SUM(D11:G11)+ISBLANK(I11),0,I11)))
 		srow++
 	}
 
@@ -499,7 +506,12 @@ func makeSQLTable(db *sql.DB) {
 
 func intval(x string) int {
 
-	n, _ := strconv.Atoi(strings.Replace(x, ".0", "", 1)) // There shouldn't be any decimals on any of the input so ...
+	re := regexp.MustCompile(`(\d+)`)
+	sm := re.FindSubmatch([]byte(x))
+	if len(sm) < 2 {
+		return 0
+	}
+	n, _ := strconv.Atoi(string(sm[1]))
 	return n
 
 }
@@ -631,5 +643,7 @@ func initStyles(f *excelize.File) {
 				"wrap_text": true
 			},
 			"fill":{"type":"pattern","color":["#ffff00"],"pattern":1}	}`)
+
+	f.SetDefaultFont("Arial")
 
 }
