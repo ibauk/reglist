@@ -36,6 +36,8 @@ const apptitle = "IBAUK Reglist v0.0.4\nCopyright (c) 2021 Bob Stammers\n\n"
 
 const basicEntryFee = 20
 const pillionEntryFee = 10
+const patchprice = 5
+const tshirtprice = 10
 
 var tshirtsizes = [...]string{"S", "M", "L", "XL", "XXL"}
 
@@ -236,7 +238,7 @@ func main() {
 			f.SetCellInt(paysheet, "E"+srowx, pillionEntryFee)
 		}
 		if tottshirts > 0 {
-			f.SetCellInt(paysheet, "F"+srowx, 10*tottshirts)
+			f.SetCellInt(paysheet, "F"+srowx, tshirtprice*tottshirts)
 		}
 
 		f.SetCellValue(noksheet, "D"+srowx, Mobile)
@@ -261,12 +263,10 @@ func main() {
 				f.SetCellInt(regsheet, string(cols[col])+srowx, tshirts[col])
 			}
 		}
-		if Patches[0] == '1' {
-			f.SetCellInt(regsheet, "X"+srowx, 1)
-			f.SetCellInt(paysheet, "G"+srowx, 5)
-		} else if Patches[0] == '2' {
-			f.SetCellInt(noksheet, "X"+srowx, 2)
-			f.SetCellInt(paysheet, "G"+srowx, 10)
+		npatches := intval(Patches)
+		if npatches > 0 {
+			f.SetCellInt(regsheet, "X"+srowx, npatches)
+			f.SetCellInt(paysheet, "G"+srowx, npatches*patchprice)
 		}
 
 		// This extracts a number if present from either "Include ..." or "I'll bring ..."
