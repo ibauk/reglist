@@ -6,9 +6,7 @@ package main
  *
  * It will be run several times before a "final" version shortly before the ride date.
  *
- * It must be kept in sync with the Wufoo form used to capture entrant records. The
- * process is download CSV from Wufoo; create and load rblrdata.db SQLite database;
- * remove column headers record then run this program to produce an XLSX file.
+ * It must be kept in sync with the Wufoo form used to capture entrant records.
  *
  */
 
@@ -41,6 +39,8 @@ const pillionEntryFee = 10
 
 var tshirtsizes = [...]string{"S", "M", "L", "XL", "XXL"}
 
+// dbFields must be kept in sync with the downloaded CSV from Wufoo
+// Fieldnames don't matter but the order and number both do
 const dbFields = `"EntryId","Date_Created","Created_By","Date_Updated","Updated_By",
 					"IP_Address","Last_Page_Accessed","Completion_Status","RiderName","RiderLast","RiderIBANumber",
 					"Is_this_your_first_RBLR1000",
@@ -63,12 +63,14 @@ const noksheet = "Sheet2"
 const bikesheet = "Sheet3"
 const paysheet = "Sheet4"
 
-const sqlx = `SELECT RiderName,RiderLast,ifnull(RiderIBANumber,''),
+const sqlx = `SELECT ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
-BikeMakeModel,round(MilesTravelledToSquires),
-FreeCamping,WhichRoute,RBLR1000Tshirt1,RBLR1000Tshirt2,ifnull(Patches,'0'),ifnull(Cash,'0'),
-Mobilephone,Emergencycontactname,Emergencycontactnumber,Emergencycontactrelationship,
-EntryId,PaymentTotal,Sponsorshipmoney,PaymentStatus
+ifnull(BikeMakeModel,''),round(ifnull(MilesTravelledToSquires,'0')),
+ifnull(FreeCamping,''),ifnull(WhichRoute,'A'),
+ifnull(RBLR1000Tshirt1,''),ifnull(RBLR1000Tshirt2,''),ifnull(Patches,'0'),ifnull(Cash,'0'),
+ifnull(Mobilephone,''),
+ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
+ifnull(EntryId,''),ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,'')
 FROM entrants ORDER BY upper(RiderLast),upper(RiderName)`
 
 var styleH, styleH2, styleT, styleV, styleV2, styleW int
