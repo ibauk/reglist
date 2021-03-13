@@ -203,8 +203,8 @@ func main() {
 			}
 		}
 		srowx = strconv.Itoa(srow)
-		var tmp []string = strings.Split(Bike, " ")
-		Make = proper(tmp[0])
+
+		Make, Model = extractMakeModel(Bike)
 
 		var i int
 		var ok bool = true
@@ -219,7 +219,7 @@ func main() {
 			bm := bikemake{Make, 1}
 			bikes = append(bikes, bm)
 		}
-		Model = strings.Join(tmp[1:], " ")
+
 		f.SetCellInt(regsheet, "A"+srowx, intval(EntryID))
 		f.SetCellInt(noksheet, "A"+srowx, intval(EntryID))
 		f.SetCellInt(paysheet, "A"+srowx, intval(EntryID))
@@ -647,5 +647,19 @@ func initStyles(f *excelize.File) {
 			"fill":{"type":"pattern","color":["#ffff00"],"pattern":1}	}`)
 
 	f.SetDefaultFont("Arial")
+
+}
+
+func extractMakeModel(bike string) (string, string) {
+
+	if strings.TrimSpace(bike) == "" {
+		return "", ""
+	}
+	re := regexp.MustCompile(`([A-Za-z]*)\s*(.*)`)
+	sm := re.FindSubmatch([]byte(bike))
+	if len(sm) < 3 {
+		return proper(string(sm[1])), ""
+	}
+	return proper(string(sm[1])), string(sm[2])
 
 }
