@@ -316,7 +316,7 @@ func main() {
 	f.SetCellStyle(regsheet, "A2", "D"+srowx, styleV)
 	f.SetCellStyle(noksheet, "A2", "A"+srowx, styleV)
 	f.SetCellStyle(regsheet, "K2", "X"+srowx, styleV)
-	f.SetCellStyle(regsheet, "E2", "J"+srowx, styleV2)
+	f.SetCellStyle(regsheet, "G2", "J"+srowx, styleV2)
 
 	f.SetCellStyle(paysheet, "A2", "A"+srowx, styleV)
 	f.SetCellStyle(paysheet, "D2", "J"+srowx, styleV)
