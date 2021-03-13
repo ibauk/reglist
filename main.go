@@ -63,6 +63,8 @@ Mobilephone,Emergencycontactname,Emergencycontactnumber,Emergencycontactrelation
 EntryId,PaymentTotal,Sponsorshipmoney,PaymentStatus
 FROM entrants ORDER BY upper(RiderLast),upper(RiderName)`
 
+var styleH, styleH2, styleT, styleV, styleV2, styleW int
+
 func proper(x string) string {
 	var xx = strings.TrimSpace(x)
 	if strings.ToLower(xx) == xx {
@@ -123,6 +125,8 @@ func main() {
 	showRecordCount(db)
 
 	f := excelize.NewFile()
+
+	initStyles(f)
 	f.SetDefaultFont("Arial")
 	// First sheet is called Sheet1
 	formatSheet(f, regsheet)
@@ -134,132 +138,6 @@ func main() {
 	formatSheet(f, paysheet)
 
 	tshirtsizes := [...]string{"S", "M", "L", "XL", "XXL"}
-
-	// Totals
-	styleT, _ := f.NewStyle(`{	
-		"alignment":
-		{
-			"horizontal": "center",
-			"ident": 1,
-			"justify_last_line": true,
-			"reading_order": 0,
-			"relative_indent": 1,
-			"shrink_to_fit": true,
-			"text_rotation": 0,
-			"vertical": "",
-			"wrap_text": true
-		},
-		"font":
-		{
-			"bold": true,
-			"italic": false,
-			"family": "Arial",
-			"size": 12,
-			"color": "000000"
-		}
-	}`)
-
-	// Header, vertical
-	styleH, _ := f.NewStyle(`{
-		"alignment":
-		{
-			"horizontal": "center",
-			"ident": 1,
-			"justify_last_line": true,
-			"reading_order": 0,
-			"relative_indent": 1,
-			"shrink_to_fit": true,
-			"text_rotation": 90,
-			"vertical": "",
-			"wrap_text": true
-		},
-		"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
-
-	// Header, horizontal
-	styleH2, _ := f.NewStyle(`{
-			"alignment":
-			{
-				"horizontal": "center",
-				"ident": 1,
-				"justify_last_line": true,
-				"reading_order": 0,
-				"relative_indent": 1,
-				"shrink_to_fit": true,
-				"text_rotation": 0,
-				"vertical": "center",
-				"wrap_text": true
-			},
-			"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
-
-	// Data
-	styleV, _ := f.NewStyle(`{
-		"alignment":
-		{
-			"horizontal": "center",
-			"ident": 1,
-			"justify_last_line": true,
-			"reading_order": 0,
-			"relative_indent": 1,
-			"shrink_to_fit": true,
-			"text_rotation": 0,
-			"vertical": "",
-			"wrap_text": true
-		},
-		"border": [
-			{
-				"type": "left",
-				"color": "000000",
-				"style": 1
-			},
-			{
-				"type": "bottom",
-				"color": "000000",
-				"style": 1
-			},
-			{
-				"type": "right",
-				"color": "000000",
-				"style": 1
-			}]		
-	}`)
-
-	// Open data
-	styleV2, _ := f.NewStyle(`{
-		"alignment":
-		{
-			"horizontal": "center",
-			"ident": 1,
-			"justify_last_line": true,
-			"reading_order": 0,
-			"relative_indent": 1,
-			"shrink_to_fit": true,
-			"text_rotation": 0,
-			"vertical": "",
-			"wrap_text": true
-		},
-		"border": [
-			{
-				"type": "bottom",
-				"color": "000000",
-				"style": 1
-			}]		
-	}`)
-
-	// styleW for highlighting, particularly errorneous, cells
-	styleW, _ := f.NewStyle(`{ 
-		"alignment":
-		{
-			"horizontal": "center",
-			"ident": 1,
-			"justify_last_line": true,
-			"reading_order": 0,
-			"relative_indent": 1,
-			"shrink_to_fit": true,
-			"text_rotation": 0,
-			"vertical": "",
-			"wrap_text": true
-		},
-		"fill":{"type":"pattern","color":["#ffff00"],"pattern":1}	}`)
 
 	f.SetCellStyle(regsheet, "A1", "A1", styleH2)
 	f.SetCellStyle(regsheet, "E1", "J1", styleH2)
@@ -623,5 +501,135 @@ func intval(x string) int {
 
 	n, _ := strconv.Atoi(strings.Replace(x, ".0", "", 1)) // There shouldn't be any decimals on any of the input so ...
 	return n
+
+}
+
+func initStyles(f *excelize.File) {
+
+	// Totals
+	styleT, _ = f.NewStyle(`{	
+			"alignment":
+			{
+				"horizontal": "center",
+				"ident": 1,
+				"justify_last_line": true,
+				"reading_order": 0,
+				"relative_indent": 1,
+				"shrink_to_fit": true,
+				"text_rotation": 0,
+				"vertical": "",
+				"wrap_text": true
+			},
+			"font":
+			{
+				"bold": true,
+				"italic": false,
+				"family": "Arial",
+				"size": 12,
+				"color": "000000"
+			}
+		}`)
+
+	// Header, vertical
+	styleH, _ = f.NewStyle(`{
+			"alignment":
+			{
+				"horizontal": "center",
+				"ident": 1,
+				"justify_last_line": true,
+				"reading_order": 0,
+				"relative_indent": 1,
+				"shrink_to_fit": true,
+				"text_rotation": 90,
+				"vertical": "",
+				"wrap_text": true
+			},
+			"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
+
+	// Header, horizontal
+	styleH2, _ = f.NewStyle(`{
+				"alignment":
+				{
+					"horizontal": "center",
+					"ident": 1,
+					"justify_last_line": true,
+					"reading_order": 0,
+					"relative_indent": 1,
+					"shrink_to_fit": true,
+					"text_rotation": 0,
+					"vertical": "center",
+					"wrap_text": true
+				},
+				"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
+
+	// Data
+	styleV, _ = f.NewStyle(`{
+			"alignment":
+			{
+				"horizontal": "center",
+				"ident": 1,
+				"justify_last_line": true,
+				"reading_order": 0,
+				"relative_indent": 1,
+				"shrink_to_fit": true,
+				"text_rotation": 0,
+				"vertical": "",
+				"wrap_text": true
+			},
+			"border": [
+				{
+					"type": "left",
+					"color": "000000",
+					"style": 1
+				},
+				{
+					"type": "bottom",
+					"color": "000000",
+					"style": 1
+				},
+				{
+					"type": "right",
+					"color": "000000",
+					"style": 1
+				}]		
+		}`)
+
+	// Open data
+	styleV2, _ = f.NewStyle(`{
+			"alignment":
+			{
+				"horizontal": "center",
+				"ident": 1,
+				"justify_last_line": true,
+				"reading_order": 0,
+				"relative_indent": 1,
+				"shrink_to_fit": true,
+				"text_rotation": 0,
+				"vertical": "",
+				"wrap_text": true
+			},
+			"border": [
+				{
+					"type": "bottom",
+					"color": "000000",
+					"style": 1
+				}]		
+		}`)
+
+	// styleW for highlighting, particularly errorneous, cells
+	styleW, _ = f.NewStyle(`{ 
+			"alignment":
+			{
+				"horizontal": "center",
+				"ident": 1,
+				"justify_last_line": true,
+				"reading_order": 0,
+				"relative_indent": 1,
+				"shrink_to_fit": true,
+				"text_rotation": 0,
+				"vertical": "",
+				"wrap_text": true
+			},
+			"fill":{"type":"pattern","color":["#ffff00"],"pattern":1}	}`)
 
 }
