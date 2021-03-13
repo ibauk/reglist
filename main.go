@@ -28,6 +28,7 @@ import (
 )
 
 var csvName *string = flag.String("csv", "rblrentrants.csv", "Path to CSV downloaded from Wufoo")
+var csvReport *bool = flag.Bool("rpt", false, "CSV downloaded from Wufoo report")
 var sqlName *string = flag.String("sql", "rblrdata.db", "Path to SQLite database")
 var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
@@ -59,6 +60,24 @@ const dbFields = `"EntryId","Date_Created","Created_By","Date_Updated","Updated_
 					"Admin_markers","Sponsorshipmoney",
 					"Patches","Cash",
 					"PaymentStatus","PaymentTotal","Payment_Currency","Payment_Confirmation","Payment_Merchant"`
+
+const dbFieldsReport = `"EntryId","RiderName","RiderLast","RiderIBANumber",
+					"Is_this_your_first_RBLR1000",
+					"Are_you_riding_with_a_pillion","PillionName","PillionLast","PillionIBANumber",
+					"Pillion_first_RBLR1000",
+					"Rider_Address","Address_Line_2","City","State_Province_Region","Postal_Zip_Code","Country",
+					"Mobilephone","Email",
+					"BikeMakeModel","Registration","Odometer_counts",
+					"Emergencycontactname","Emergencycontactnumber","Emergencycontactrelationship",
+					"ao_BCM","Detailed_Instructions",
+					"RBLR1000Tshirt1","RBLR1000Tshirt2",
+					"WhichRoute",
+					"FreeCamping","MilestravelledToSquires",
+					"Admin_markers","Sponsorshipmoney",
+					"Patches","Cash",
+					"PaymentStatus","PaymentTotal","Payment_Currency","Payment_Confirmation","Payment_Merchant",
+					"Date_Created","Created_By","Date_Updated","Updated_By",
+					"IP_Address","Last_Page_Accessed","Completion_Status"`
 
 const regsheet = "Sheet1"
 const noksheet = "Sheet2"
@@ -467,7 +486,14 @@ func loadCSVFile(db *sql.DB) {
 			continue
 		}
 
-		sqlx := "INSERT INTO entrants (" + dbFields + ") VALUES("
+		sqlx := "INSERT INTO entrants ("
+		if *csvReport {
+			sqlx += dbFieldsReport
+		} else {
+			sqlx += dbFields
+		}
+		sqlx += ") VALUES("
+
 		for i := 0; i < len(record); i++ {
 			if i > 0 {
 				sqlx += ","
