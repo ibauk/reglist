@@ -83,6 +83,7 @@ const regsheet = "Sheet1"
 const noksheet = "Sheet2"
 const bikesheet = "Sheet3"
 const paysheet = "Sheet4"
+const totsheet = "Sheet5"
 
 const sqlx = `SELECT ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -91,10 +92,11 @@ ifnull(FreeCamping,''),ifnull(WhichRoute,'A'),
 ifnull(RBLR1000Tshirt1,''),ifnull(RBLR1000Tshirt2,''),ifnull(Patches,'0'),ifnull(Cash,'0'),
 ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
-ifnull(EntryId,''),ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,'')
+ifnull(EntryId,''),ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,''),
+ifnull(Is_this_your_first_RBLR1000,''),ifnull(Pillion_first_RBLR1000,'')
 FROM entrants ORDER BY upper(RiderLast),upper(RiderName)`
 
-var styleH, styleH2, styleT, styleV, styleV2, styleW int
+var styleH, styleH2, styleT, styleV, styleV2, styleW, styleRJ int
 
 func proper(x string) string {
 	var xx = strings.TrimSpace(x)
@@ -167,6 +169,8 @@ func main() {
 	formatSheet(f, bikesheet)
 	f.NewSheet(paysheet)
 	formatSheet(f, paysheet)
+	f.NewSheet(totsheet)
+	formatSheet(f, totsheet)
 
 	f.SetCellStyle(regsheet, "A1", "A1", styleH2)
 	f.SetCellStyle(regsheet, "E1", "J1", styleH2)
@@ -187,6 +191,10 @@ func main() {
 	}
 	var bikes []bikemake
 
+	var numRiders int = 0
+	var numPillions int = 0
+	var numNovices int = 0
+
 	for rows1.Next() {
 		var RiderFirst string
 		var RiderLast string
@@ -198,6 +206,7 @@ func main() {
 		var Mobile, NokName, NokNumber, NokRelation string
 		var PayTot string
 		var Sponsor, Paid, Cash string
+		var novicerider, novicepillion string
 
 		// This needs to match the size of the tshirtsizes array
 		var tshirts [len(tshirtsizes)]int
@@ -207,7 +216,7 @@ func main() {
 
 		err2 := rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 			&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
-			&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Sponsor, &Paid)
+			&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion)
 		if err2 != nil {
 			log.Fatal(err2)
 		}
@@ -241,6 +250,8 @@ func main() {
 			bikes = append(bikes, bm)
 		}
 
+		numRiders++
+
 		f.SetCellInt(regsheet, "A"+srowx, intval(EntryID))
 		f.SetCellInt(noksheet, "A"+srowx, intval(EntryID))
 		f.SetCellInt(paysheet, "A"+srowx, intval(EntryID))
@@ -255,9 +266,17 @@ func main() {
 
 		if PillionFirst != "" && PillionLast != "" {
 			f.SetCellInt(paysheet, "E"+srowx, pillionEntryFee)
+			numPillions++
 		}
 		if tottshirts > 0 {
 			f.SetCellInt(paysheet, "F"+srowx, tshirtprice*tottshirts)
+		}
+
+		if strings.Contains(novicerider, "novice") {
+			numNovices++
+		}
+		if strings.Contains(novicepillion, "novice") {
+			numNovices++
 		}
 
 		f.SetCellValue(noksheet, "D"+srowx, Mobile)
@@ -310,6 +329,19 @@ func main() {
 		}
 		srow++
 	}
+
+	// Write out totals
+	f.SetColWidth(totsheet, "A", "A", 20)
+	f.SetCellStyle(totsheet, "A3", "A15", styleRJ)
+	for i := 3; i <= 15; i++ {
+		f.SetRowHeight(totsheet, i, 20)
+	}
+	f.SetCellValue(totsheet, "A3", "Number of riders")
+	f.SetCellValue(totsheet, "A4", "Number of pillions")
+	f.SetCellValue(totsheet, "A5", "Number of novices")
+	f.SetCellInt(totsheet, "B3", numRiders)
+	f.SetCellInt(totsheet, "B4", numPillions)
+	f.SetCellInt(totsheet, "B5", numNovices)
 
 	f.SetCellStyle(regsheet, "B1", "D1", styleH)
 	f.SetCellStyle(regsheet, "K1", "X1", styleH)
@@ -445,6 +477,8 @@ func main() {
 	f.SetSheetName(noksheet, "NOK list")
 	f.SetSheetName(bikesheet, "Bikes")
 	f.SetSheetName(paysheet, "Money")
+	f.SetSheetName(totsheet, "Stats")
+
 	// Save spreadsheet by the given path.
 	if err := f.SaveAs(*xlsName); err != nil {
 		fmt.Println(err)
@@ -671,6 +705,21 @@ func initStyles(f *excelize.File) {
 				"wrap_text": true
 			},
 			"fill":{"type":"pattern","color":["#ffff00"],"pattern":1}	}`)
+
+	styleRJ, _ = f.NewStyle(`{ 
+				"alignment":
+				{
+					"horizontal": "right",
+					"ident": 1,
+					"justify_last_line": true,
+					"reading_order": 0,
+					"relative_indent": 1,
+					"shrink_to_fit": true,
+					"text_rotation": 0,
+					"vertical": "",
+					"wrap_text": true
+				}
+	}`)
 
 	f.SetDefaultFont("Arial")
 
