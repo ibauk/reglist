@@ -204,6 +204,7 @@ func main() {
 	var shortestSquires int = 9999
 	var longestSquires int = 0
 	var camping int = 0
+	var ibamembers int = 0
 
 	for rows1.Next() {
 		var RiderFirst string
@@ -300,13 +301,19 @@ func main() {
 		if strings.Contains(novicepillion, "novice") {
 			numNovices++
 		}
+		if RiderIBA != "" {
+			ibamembers++
+		}
+		if PillionIBA != "" {
+			ibamembers++
+		}
 
 		f.SetCellValue(noksheet, "D"+srowx, Mobile)
 		f.SetCellValue(noksheet, "E"+srowx, strings.Title(NokName))
 		f.SetCellValue(noksheet, "F"+srowx, strings.Title(NokRelation))
 		f.SetCellValue(noksheet, "G"+srowx, NokNumber)
 
-		f.SetCellValue(regsheet, "G"+srowx, strings.ReplaceAll(RiderIBA, ".0", ""))
+		f.SetCellValue(regsheet, "G"+srowx, fmtIBA(RiderIBA))
 		f.SetCellValue(regsheet, "H"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
 		f.SetCellValue(regsheet, "I"+srowx, proper(Make))
 		f.SetCellValue(regsheet, "J"+srowx, proper(Model))
@@ -354,24 +361,40 @@ func main() {
 
 	// Write out totals
 	f.SetColWidth(totsheet, "A", "A", 30)
-	f.SetCellStyle(totsheet, "A3", "A15", styleRJ)
-	for i := 3; i <= 15; i++ {
+	f.SetCellStyle(totsheet, "A3", "A16", styleRJ)
+	for i := 3; i <= 16; i++ {
 		f.SetRowHeight(totsheet, i, 30)
 	}
 	f.SetCellValue(totsheet, "A3", "Number of riders")
 	f.SetCellValue(totsheet, "A4", "Number of pillions")
 	f.SetCellValue(totsheet, "A5", "Number of novices")
-	f.SetCellValue(totsheet, "A6", "Nearest to Squires")
-	f.SetCellValue(totsheet, "A7", "Furthest from Squires")
-	f.SetCellValue(totsheet, "A8", "Camping at Squires")
-	f.SetCellValue(totsheet, "A9", "Funds raised for Poppy Appeal")
+	f.SetCellValue(totsheet, "A6", "Number of IBA members")
+	f.SetCellValue(totsheet, "A7", "Nearest to Squires")
+	f.SetCellValue(totsheet, "A8", "Furthest from Squires")
+	f.SetCellValue(totsheet, "A9", "Camping at Squires")
+	f.SetCellValue(totsheet, "A10", "Funds raised for Poppy Appeal")
+	f.SetCellValue(totsheet, "A11", "A - North clockwise")
+	f.SetCellValue(totsheet, "A12", "B - North anti-clockwise")
+	f.SetCellValue(totsheet, "A13", "C - South clockwise")
+	f.SetCellValue(totsheet, "A14", "D - South anti-clockwise")
+	f.SetCellValue(totsheet, "A15", "E - 500 clockwise")
+	f.SetCellValue(totsheet, "A16", "F - 500 anti-clockwise")
+
 	f.SetCellInt(totsheet, "B3", numRiders)
 	f.SetCellInt(totsheet, "B4", numPillions)
 	f.SetCellInt(totsheet, "B5", numNovices)
-	f.SetCellInt(totsheet, "B6", shortestSquires)
-	f.SetCellInt(totsheet, "B7", longestSquires)
-	f.SetCellInt(totsheet, "B8", camping)
-	f.SetCellFormula(totsheet, "B9", paysheet+"!I"+strconv.Itoa(srow+1))
+	f.SetCellInt(totsheet, "B6", ibamembers)
+	f.SetCellInt(totsheet, "B7", shortestSquires)
+	f.SetCellInt(totsheet, "B8", longestSquires)
+	f.SetCellInt(totsheet, "B9", camping)
+	f.SetCellFormula(totsheet, "B10", paysheet+"!I"+strconv.Itoa(srow+1))
+	f.SetCellFormula(totsheet, "B11", regsheet+"!M"+strconv.Itoa(srow+1))
+	f.SetCellFormula(totsheet, "B12", regsheet+"!N"+strconv.Itoa(srow+1))
+	f.SetCellFormula(totsheet, "B13", regsheet+"!O"+strconv.Itoa(srow+1))
+	f.SetCellFormula(totsheet, "B14", regsheet+"!P"+strconv.Itoa(srow+1))
+	f.SetCellFormula(totsheet, "B15", regsheet+"!Q"+strconv.Itoa(srow+1))
+	f.SetCellFormula(totsheet, "B16", regsheet+"!R"+strconv.Itoa(srow+1))
+
 	f.SetCellStyle(regsheet, "B1", "D1", styleH)
 	f.SetCellStyle(regsheet, "K1", "X1", styleH)
 	f.SetCellStyle(regsheet, "A2", "D"+srowx, styleV)
@@ -502,12 +525,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	f.SetSheetName(regsheet, "Registration")
-	f.SetSheetName(noksheet, "NOK list")
-	f.SetSheetName(bikesheet, "Bikes")
-	f.SetSheetName(paysheet, "Money")
-	f.SetSheetName(totsheet, "Stats")
 
 	// Save spreadsheet by the given path.
 	if err := f.SaveAs(*xlsName); err != nil {
@@ -787,5 +804,14 @@ func extractMakeModel(bike string) (string, string) {
 		return proper(string(sm[1])), ""
 	}
 	return proper(string(sm[1])), string(sm[2])
+
+}
+
+func fmtIBA(x string) string {
+
+	if x == "-1" {
+		return "n/a"
+	}
+	return strings.ReplaceAll(x, ".0", "")
 
 }
