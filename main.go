@@ -93,7 +93,8 @@ ifnull(RBLR1000Tshirt1,''),ifnull(RBLR1000Tshirt2,''),ifnull(Patches,'0'),ifnull
 ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
 ifnull(EntryId,''),ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,''),
-ifnull(Is_this_your_first_RBLR1000,''),ifnull(Pillion_first_RBLR1000,'')
+ifnull(Is_this_your_first_RBLR1000,''),ifnull(Pillion_first_RBLR1000,''),
+ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,'')
 FROM entrants ORDER BY upper(RiderLast),upper(RiderName)`
 
 var styleH, styleH2, styleT, styleV, styleV2, styleW, styleRJ int
@@ -194,6 +195,9 @@ func main() {
 	var numRiders int = 0
 	var numPillions int = 0
 	var numNovices int = 0
+	var shortestSquires int = 9999
+	var longestSquires int = 0
+	var camping int = 0
 
 	for rows1.Next() {
 		var RiderFirst string
@@ -207,6 +211,7 @@ func main() {
 		var PayTot string
 		var Sponsor, Paid, Cash string
 		var novicerider, novicepillion string
+		var miles2squires, freecamping string
 
 		// This needs to match the size of the tshirtsizes array
 		var tshirts [len(tshirtsizes)]int
@@ -216,7 +221,8 @@ func main() {
 
 		err2 := rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 			&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
-			&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion)
+			&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
+			&miles2squires, &freecamping)
 		if err2 != nil {
 			log.Fatal(err2)
 		}
@@ -251,6 +257,16 @@ func main() {
 		}
 
 		numRiders++
+
+		if intval(miles2squires) < shortestSquires {
+			shortestSquires = intval(miles2squires)
+		}
+		if intval(miles2squires) > longestSquires {
+			longestSquires = intval(miles2squires)
+		}
+		if freecamping == "Yes" {
+			camping++
+		}
 
 		f.SetCellInt(regsheet, "A"+srowx, intval(EntryID))
 		f.SetCellInt(noksheet, "A"+srowx, intval(EntryID))
@@ -339,10 +355,15 @@ func main() {
 	f.SetCellValue(totsheet, "A3", "Number of riders")
 	f.SetCellValue(totsheet, "A4", "Number of pillions")
 	f.SetCellValue(totsheet, "A5", "Number of novices")
+	f.SetCellValue(totsheet, "A6", "Nearest to Squires")
+	f.SetCellValue(totsheet, "A7", "Furthest from Squires")
+	f.SetCellValue(totsheet, "A8", "Camping at Squires")
 	f.SetCellInt(totsheet, "B3", numRiders)
 	f.SetCellInt(totsheet, "B4", numPillions)
 	f.SetCellInt(totsheet, "B5", numNovices)
-
+	f.SetCellInt(totsheet, "B6", shortestSquires)
+	f.SetCellInt(totsheet, "B7", longestSquires)
+	f.SetCellInt(totsheet, "B8", camping)
 	f.SetCellStyle(regsheet, "B1", "D1", styleH)
 	f.SetCellStyle(regsheet, "K1", "X1", styleH)
 	f.SetCellStyle(regsheet, "A2", "D"+srowx, styleV)
