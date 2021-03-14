@@ -79,11 +79,11 @@ const dbFieldsReport = `"EntryId","RiderName","RiderLast","RiderIBANumber",
 					"Date_Created","Created_By","Date_Updated","Updated_By",
 					"IP_Address","Last_Page_Accessed","Completion_Status"`
 
-const regsheet = "Sheet1"
-const noksheet = "Sheet2"
-const bikesheet = "Sheet3"
-const paysheet = "Sheet4"
-const totsheet = "Sheet5"
+var regsheet string = "Sheet1"
+var noksheet string = "Sheet2"
+var bikesheet string = "Sheet3"
+var paysheet string = "Sheet4"
+var totsheet string = "Sheet5"
 
 const sqlx = `SELECT ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -172,6 +172,12 @@ func main() {
 	formatSheet(f, paysheet)
 	f.NewSheet(totsheet)
 	formatSheet(f, totsheet)
+
+	renameSheet(f, &regsheet, "Registration")
+	renameSheet(f, &noksheet, "NOK list")
+	renameSheet(f, &bikesheet, "Bikes")
+	renameSheet(f, &paysheet, "Money")
+	renameSheet(f, &totsheet, "Stats")
 
 	f.SetCellStyle(regsheet, "A1", "A1", styleH2)
 	f.SetCellStyle(regsheet, "E1", "J1", styleH2)
@@ -350,7 +356,7 @@ func main() {
 	f.SetColWidth(totsheet, "A", "A", 20)
 	f.SetCellStyle(totsheet, "A3", "A15", styleRJ)
 	for i := 3; i <= 15; i++ {
-		f.SetRowHeight(totsheet, i, 20)
+		f.SetRowHeight(totsheet, i, 30)
 	}
 	f.SetCellValue(totsheet, "A3", "Number of riders")
 	f.SetCellValue(totsheet, "A4", "Number of pillions")
@@ -506,6 +512,12 @@ func main() {
 	}
 }
 
+func renameSheet(f *excelize.File, oldname *string, newname string) {
+
+	f.SetSheetName(*oldname, newname)
+	*oldname = newname
+
+}
 func loadCSVFile(db *sql.DB) {
 
 	file, err := os.Open(*csvName)
