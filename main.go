@@ -353,7 +353,7 @@ func main() {
 	}
 
 	// Write out totals
-	f.SetColWidth(totsheet, "A", "A", 20)
+	f.SetColWidth(totsheet, "A", "A", 30)
 	f.SetCellStyle(totsheet, "A3", "A15", styleRJ)
 	for i := 3; i <= 15; i++ {
 		f.SetRowHeight(totsheet, i, 30)
@@ -364,12 +364,14 @@ func main() {
 	f.SetCellValue(totsheet, "A6", "Nearest to Squires")
 	f.SetCellValue(totsheet, "A7", "Furthest from Squires")
 	f.SetCellValue(totsheet, "A8", "Camping at Squires")
+	f.SetCellValue(totsheet, "A9", "Funds raised for Poppy Appeal")
 	f.SetCellInt(totsheet, "B3", numRiders)
 	f.SetCellInt(totsheet, "B4", numPillions)
 	f.SetCellInt(totsheet, "B5", numNovices)
 	f.SetCellInt(totsheet, "B6", shortestSquires)
 	f.SetCellInt(totsheet, "B7", longestSquires)
 	f.SetCellInt(totsheet, "B8", camping)
+	f.SetCellFormula(totsheet, "B9", paysheet+"!I"+strconv.Itoa(srow+1))
 	f.SetCellStyle(regsheet, "B1", "D1", styleH)
 	f.SetCellStyle(regsheet, "K1", "X1", styleH)
 	f.SetCellStyle(regsheet, "A2", "D"+srowx, styleV)
