@@ -97,7 +97,7 @@ ifnull(Is_this_your_first_RBLR1000,''),ifnull(Pillion_first_RBLR1000,''),
 ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,'')
 FROM entrants ORDER BY upper(RiderLast),upper(RiderName)`
 
-var styleH, styleH2, styleT, styleV, styleV2, styleW, styleRJ int
+var styleH, styleH2, styleT, styleV, styleV2, styleV3, styleW, styleRJ int
 
 func proper(x string) string {
 	var xx = strings.TrimSpace(x)
@@ -490,7 +490,8 @@ func main() {
 	for i := 0; i < len(bikes); i++ {
 		f.SetCellValue(bikesheet, "A"+strconv.Itoa(srow), bikes[i].make)
 		f.SetCellInt(bikesheet, "B"+strconv.Itoa(srow), bikes[i].num)
-		f.SetCellStyle(bikesheet, "B"+strconv.Itoa(srow), "B"+strconv.Itoa(srow), styleV)
+		f.SetCellStyle(bikesheet, "B"+strconv.Itoa(srow), "B"+strconv.Itoa(srow), styleV3)
+		f.SetRowHeight(bikesheet, srow, 30)
 		ntot += bikes[i].num
 		srow++
 	}
@@ -723,6 +724,21 @@ func initStyles(f *excelize.File) {
 					"color": "000000",
 					"style": 1
 				}]		
+		}`)
+
+	styleV3, _ = f.NewStyle(`{
+			"alignment":
+			{
+				"horizontal": "center",
+				"ident": 1,
+				"justify_last_line": true,
+				"reading_order": 0,
+				"relative_indent": 1,
+				"shrink_to_fit": true,
+				"text_rotation": 0,
+				"vertical": "",
+				"wrap_text": true
+			}
 		}`)
 
 	// styleW for highlighting, particularly errorneous, cells
