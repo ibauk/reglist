@@ -34,7 +34,7 @@ var sqlName *string = flag.String("sql", "rblrdata.db", "Path to SQLite database
 var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
 
-const apptitle = "IBAUK Reglist v0.0.4\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v0.0.5\nCopyright (c) 2021 Bob Stammers\n\n"
 
 //const basicEntryFee = 20
 //const pillionEntryFee = 10
@@ -194,7 +194,7 @@ func main() {
 	f.NewSheet(chksheet)
 	formatSheet(f, chksheet, true)
 
-	renameSheet(f, &regsheet, "Registration")
+	renameSheet(f, &regsheet, "Overview")
 	renameSheet(f, &noksheet, "NOK list")
 	renameSheet(f, &bikesheet, "Bikes")
 	renameSheet(f, &paysheet, "Money")
