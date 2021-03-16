@@ -8,19 +8,20 @@ import (
 
 // Config holds the contents of the configuration file
 type Config struct {
-	Rally       string   `yaml:"name"`
-	Year        string   `yaml:"year"`
-	Afields     []string `yaml:"afields"`
-	Rfields     []string `yaml:"rfields"`
-	Tshirts     []string `yaml:"tshirtsizes"`
-	Tshirtcost  int      `yaml:"tshirtcost"`
-	Riderfee    int      `yaml:"riderfee"`
-	Pillionfee  int      `yaml:"pillionfee"`
-	Patchavail  bool     `yaml:"patchavail"`
-	Patchcost   int      `yaml:"patchcost"`
-	Sponsorship bool     `yaml:"sponsorship"`
-	Fundsonday  string   `yaml:"fundsonday"`
-	Novice      string   `yaml:"novice"`
+	Rally         string   `yaml:"name"`
+	Year          string   `yaml:"year"`
+	Afields       []string `yaml:"afields"`
+	Rfields       []string `yaml:"rfields"`
+	Tshirts       []string `yaml:"tshirtsizes"`
+	Tshirtcost    int      `yaml:"tshirtcost"`
+	Riderfee      int      `yaml:"riderfee"`
+	Pillionfee    int      `yaml:"pillionfee"`
+	Patchavail    bool     `yaml:"patchavail"`
+	Patchcost     int      `yaml:"patchcost"`
+	Sponsorship   bool     `yaml:"sponsorship"`
+	Fundsonday    string   `yaml:"fundsonday"`
+	Novice        string   `yaml:"novice"`
+	Add2entrantid int      `yaml:"add2entrantid"`
 }
 
 // NewConfig returns a new decoded Config struct

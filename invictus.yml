@@ -29,10 +29,11 @@ rfields: ["EntryId","RiderName","RiderLast","RiderIBANumber",
 					"IP_Address","Last_Page_Accessed","Completion_Status"]
 tshirts: []
 tshirtcost: 0
-riderfee: 25
+riderfee: 20
 pillionfee: 10
 patchavail: false
 patchcost: 0
 sponsorship: false
 fundsonday: ''
 novice: novice
+add2entrantid: -1

@@ -296,9 +296,9 @@ func main() {
 			}
 		}
 
-		f.SetCellInt(regsheet, "A"+srowx, intval(EntryID))
-		f.SetCellInt(noksheet, "A"+srowx, intval(EntryID))
-		f.SetCellInt(paysheet, "A"+srowx, intval(EntryID))
+		f.SetCellInt(regsheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
+		f.SetCellInt(noksheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
+		f.SetCellInt(paysheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
 		f.SetCellValue(regsheet, "E"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(regsheet, "F"+srowx, strings.Title(RiderLast))
 		f.SetCellValue(noksheet, "B"+srowx, strings.Title(RiderFirst))
