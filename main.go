@@ -510,7 +510,11 @@ func main() {
 
 	f.SetCellValue(regsheet, "G1", "IBA #")
 	f.SetCellValue(regsheet, "H1", "Pillion")
-	f.SetColWidth(regsheet, "H", "H", 12)
+	if cfg.Rally == "rblr" {
+		f.SetColWidth(regsheet, "H", "H", 12)
+	} else {
+		f.SetColWidth(regsheet, "H", "H", 15)
+	}
 
 	f.SetCellValue(regsheet, "I1", "Make")
 	f.SetColWidth(regsheet, "I", "I", 10)
