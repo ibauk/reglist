@@ -33,7 +33,7 @@ rfields: ["EntryId","RiderName","RiderLast","RiderIBANumber",
 					"PaymentStatus","PaymentTotal","Payment_Currency","Payment_Confirmation","Payment_Merchant",
 					"Date_Created","Created_By","Date_Updated","Updated_By",
 					"IP_Address","Last_Page_Accessed","Completion_Status"]
-tshirts: ["S", "M", "L", "XL", "XXL"]
+tshirtsizes: ["S", "M", "L", "XL", "XXL"]
 tshirtcost: 10
 riderfee: 20
 pillionfee: 10
@@ -41,3 +41,4 @@ patchavail: true
 patchcost: 5
 sponsorship: true
 fundsonday: Cheque @ Squires
+novice: novice

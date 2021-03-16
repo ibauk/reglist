@@ -8,7 +8,7 @@ import (
 
 // Config holds the contents of the configuration file
 type Config struct {
-	Name        string   `yaml:"name"`
+	Rally       string   `yaml:"name"`
 	Year        string   `yaml:"year"`
 	Afields     []string `yaml:"afields"`
 	Rfields     []string `yaml:"rfields"`
@@ -20,6 +20,7 @@ type Config struct {
 	Patchcost   int      `yaml:"patchcost"`
 	Sponsorship bool     `yaml:"sponsorship"`
 	Fundsonday  string   `yaml:"fundsonday"`
+	Novice      string   `yaml:"novice"`
 }
 
 // NewConfig returns a new decoded Config struct

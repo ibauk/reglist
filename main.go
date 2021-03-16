@@ -27,6 +27,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+var rally *string = flag.String("cfg", "rblr", "Which rally is this (yml file)")
 var csvName *string = flag.String("csv", "rblrentrants.csv", "Path to CSV downloaded from Wufoo")
 var csvReport *bool = flag.Bool("rpt", false, "CSV downloaded from Wufoo report")
 var sqlName *string = flag.String("sql", "rblrdata.db", "Path to SQLite database")
@@ -35,49 +36,17 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 
 const apptitle = "IBAUK Reglist v0.0.4\nCopyright (c) 2021 Bob Stammers\n\n"
 
-const basicEntryFee = 20
-const pillionEntryFee = 10
-const patchprice = 5
-const tshirtprice = 10
+//const basicEntryFee = 20
+//const pillionEntryFee = 10
+//const patchprice = 5
+//const tshirtprice = 10
 
-var tshirtsizes = [...]string{"S", "M", "L", "XL", "XXL"}
+//var tshirtsizes = [...]string{"S", "M", "L", "XL", "XXL"}
 
 // dbFields must be kept in sync with the downloaded CSV from Wufoo
 // Fieldnames don't matter but the order and number both do
-const dbFields = `"EntryId","Date_Created","Created_By","Date_Updated","Updated_By",
-					"IP_Address","Last_Page_Accessed","Completion_Status","RiderName","RiderLast","RiderIBANumber",
-					"NoviceRider",
-					"HasPillion","PillionName","PillionLast","PillionIBANumber",
-					"NovicePillion",
-					"Rider_Address","Address_Line_2","City","State_Province_Region","Postal_Zip_Code","Country",
-					"Mobilephone","Email",
-					"BikeMakeModel","Registration","Odometer_counts",
-					"Emergencycontactname","Emergencycontactnumber","Emergencycontactrelationship",
-					"ao_BCM","Detailed_Instructions",
-					"Tshirt1","Tshirt2",
-					"WhichRoute",
-					"FreeCamping","MilestravelledToSquires",
-					"Admin_markers","Sponsorshipmoney",
-					"Patches","Cash",
-					"PaymentStatus","PaymentTotal","Payment_Currency","Payment_Confirmation","Payment_Merchant"`
 
-const dbFieldsReport = `"EntryId","RiderName","RiderLast","RiderIBANumber",
-					"NoviceRider",
-					"HasPillion","PillionName","PillionLast","PillionIBANumber",
-					"NovicePillion",
-					"Rider_Address","Address_Line_2","City","State_Province_Region","Postal_Zip_Code","Country",
-					"Mobilephone","Email",
-					"BikeMakeModel","Registration","Odometer_counts",
-					"Emergencycontactname","Emergencycontactnumber","Emergencycontactrelationship",
-					"ao_BCM","Detailed_Instructions",
-					"Tshirt1","Tshirt2",
-					"WhichRoute",
-					"FreeCamping","MilestravelledToSquires",
-					"Admin_markers","Sponsorshipmoney",
-					"Patches","Cash",
-					"PaymentStatus","PaymentTotal","Payment_Currency","Payment_Confirmation","Payment_Merchant",
-					"Date_Created","Created_By","Date_Updated","Updated_By",
-					"IP_Address","Last_Page_Accessed","Completion_Status"`
+var dbfieldsx string
 
 var regsheet string = "Sheet1"
 var noksheet string = "Sheet2"
@@ -85,7 +54,7 @@ var bikesheet string = "Sheet3"
 var paysheet string = "Sheet4"
 var totsheet string = "Sheet5"
 
-const sqlx = `SELECT ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
+const sqlx_rblr = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
 ifnull(BikeMakeModel,''),round(ifnull(MilesTravelledToSquires,'0')),
 ifnull(FreeCamping,''),ifnull(WhichRoute,'A'),
@@ -94,10 +63,32 @@ ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
 ifnull(EntryId,''),ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,''),
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),
-ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,'')
-FROM entrants ORDER BY upper(RiderLast),upper(RiderName)`
+ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,'')`
+
+const sqlx_rally = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
+ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
+ifnull(BikeMakeModel,''),
+ifnull(Tshirt1,''),ifnull(Tshirt2,''),
+ifnull(Mobilephone,''),
+ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
+ifnull(EntryId,''),ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
+ifnull(NoviceRider,''),ifnull(NovicePillion,'')`
+
+var sqlx string
 
 var styleH, styleH2, styleT, styleV, styleV2, styleV3, styleW, styleRJ int
+
+func fieldlistFromConfig(cols []string) string {
+
+	var res string = ""
+	for i := 0; i < len(cols); i++ {
+		if i > 0 {
+			res += ","
+		}
+		res += "\"" + cols[i] + "\""
+	}
+	return res
+}
 
 func proper(x string) string {
 	var xx = strings.TrimSpace(x)
@@ -152,11 +143,22 @@ func main() {
 
 	var cfg *Config
 	var cfgerr error
-	cfg, cfgerr = NewConfig("rblr.yml")
+	cfg, cfgerr = NewConfig(*rally + ".yml")
 	if cfgerr != nil {
 		log.Fatal(cfgerr)
 	}
-	fmt.Printf("%v\n\n", *cfg)
+
+	if *csvReport {
+		dbfieldsx = fieldlistFromConfig(cfg.Rfields)
+	} else {
+		dbfieldsx = fieldlistFromConfig(cfg.Afields)
+	}
+
+	if cfg.Rally == "rblr" {
+		sqlx = "SELECT " + sqlx_rblr + " FROM entrants ORDER BY upper(RiderLast),upper(RiderName)"
+	} else {
+		sqlx = "SELECT " + sqlx_rally + " FROM entrants ORDER BY upper(RiderLast),upper(RiderName)"
+	}
 
 	db, err := sql.Open("sqlite3", *sqlName)
 	if err != nil {
@@ -228,27 +230,36 @@ func main() {
 		var novicerider, novicepillion string
 		var miles2squires, freecamping string
 
-		// This needs to match the size of the tshirtsizes array
-		var tshirts [len(tshirtsizes)]int
-		for i := 0; i < len(tshirts); i++ {
+		// This needs to be at least as big as the number of sizes declared
+		numtsizes := len(cfg.Tshirts)
+		var tshirts [10]int
+		for i := 0; i < numtsizes; i++ {
 			tshirts[i] = 0
 		}
 
-		err2 := rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
-			&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
-			&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
-			&miles2squires, &freecamping)
+		var err2 error
+		if cfg.Rally == "rblr" {
+			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
+				&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
+				&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
+				&miles2squires, &freecamping)
+		} else {
+			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
+				&Bike, &T1, &T2,
+				&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Paid, &novicerider, &novicepillion)
+		}
 		if err2 != nil {
 			log.Fatal(err2)
 		}
 		//fmt.Printf("%v %v\n", RiderFirst, RiderLast)
 		var tottshirts int = 0
-		for i := 0; i < len(tshirtsizes); i++ {
-			if tshirtsizes[i] == T1 {
+
+		for i := 0; i < numtsizes; i++ {
+			if cfg.Tshirts[i] == T1 {
 				tshirts[i]++
 				tottshirts++
 			}
-			if tshirtsizes[i] == T2 {
+			if cfg.Tshirts[i] == T2 {
 				tshirts[i]++
 				tottshirts++
 			}
@@ -273,14 +284,16 @@ func main() {
 
 		numRiders++
 
-		if intval(miles2squires) < shortestSquires {
-			shortestSquires = intval(miles2squires)
-		}
-		if intval(miles2squires) > longestSquires {
-			longestSquires = intval(miles2squires)
-		}
-		if freecamping == "Yes" {
-			camping++
+		if cfg.Rally == "rblr" {
+			if intval(miles2squires) < shortestSquires {
+				shortestSquires = intval(miles2squires)
+			}
+			if intval(miles2squires) > longestSquires {
+				longestSquires = intval(miles2squires)
+			}
+			if freecamping == "Yes" {
+				camping++
+			}
 		}
 
 		f.SetCellInt(regsheet, "A"+srowx, intval(EntryID))
@@ -293,20 +306,20 @@ func main() {
 		f.SetCellValue(paysheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(paysheet, "C"+srowx, strings.Title(RiderLast))
 
-		f.SetCellInt(paysheet, "D"+srowx, basicEntryFee) // Basic entry fee
+		f.SetCellInt(paysheet, "D"+srowx, cfg.Riderfee) // Basic entry fee
 
 		if PillionFirst != "" && PillionLast != "" {
-			f.SetCellInt(paysheet, "E"+srowx, pillionEntryFee)
+			f.SetCellInt(paysheet, "E"+srowx, cfg.Pillionfee)
 			numPillions++
 		}
 		if tottshirts > 0 {
-			f.SetCellInt(paysheet, "F"+srowx, tshirtprice*tottshirts)
+			f.SetCellInt(paysheet, "F"+srowx, cfg.Tshirtcost*tottshirts)
 		}
 
-		if strings.Contains(novicerider, "novice") {
+		if strings.Contains(novicerider, cfg.Novice) {
 			numNovices++
 		}
-		if strings.Contains(novicepillion, "novice") {
+		if strings.Contains(novicepillion, cfg.Novice) {
 			numNovices++
 		}
 		if RiderIBA != "" {
@@ -326,12 +339,15 @@ func main() {
 		f.SetCellValue(regsheet, "I"+srowx, proper(Make))
 		f.SetCellValue(regsheet, "J"+srowx, proper(Model))
 		f.SetCellValue(regsheet, "K"+srowx, Miles)
-		if Camp == "Yes" {
+		if Camp == "Yes" && cfg.Rally == "rblr" {
 			f.SetCellInt(regsheet, "L"+srowx, 1)
 		}
 		var cols string = "MNOPQR"
-		var col int = strings.Index("ABCDEF", string(Route[0]))
-		f.SetCellInt(regsheet, string(cols[col])+srowx, 1)
+		var col int = 0
+		if cfg.Rally == "rblr" {
+			col = strings.Index("ABCDEF", string(Route[0]))
+			f.SetCellInt(regsheet, string(cols[col])+srowx, 1)
+		}
 		cols = "STUVW"
 		for col = 0; col < len(tshirts); col++ {
 			if tshirts[col] > 0 {
@@ -339,23 +355,23 @@ func main() {
 			}
 		}
 		npatches := intval(Patches)
-		if npatches > 0 {
+		if cfg.Patchavail && npatches > 0 {
 			f.SetCellInt(regsheet, "X"+srowx, npatches)
-			f.SetCellInt(paysheet, "G"+srowx, npatches*patchprice)
+			f.SetCellInt(paysheet, "G"+srowx, npatches*cfg.Patchcost)
 		}
 
-		// This extracts a number if present from either "Include ..." or "I'll bring ..."
-		Sponsorship := strconv.Itoa(intval(Sponsor)) // "50"
+		if cfg.Sponsorship {
+			// This extracts a number if present from either "Include ..." or "I'll bring ..."
+			Sponsorship := strconv.Itoa(intval(Sponsor)) // "50"
 
-		sf := "H" + srowx + "+" + Sponsorship
-		f.SetCellFormula(paysheet, "I"+srowx, "if("+sf+"=0,\"0\","+sf+")")
+			sf := "H" + srowx + "+" + Sponsorship
+			f.SetCellFormula(paysheet, "I"+srowx, "if("+sf+"=0,\"0\","+sf+")")
+			intCash := intval(Cash)
 
-		intCash := intval(Cash)
-		if false && intCash != 0 {
-			f.SetCellInt(paysheet, "K"+srowx, intval(Cash))
+			f.SetCellFormula(paysheet, "J"+srowx, "H"+srowx+"+"+strconv.Itoa(intCash)+"+"+strconv.Itoa(intval(PayTot)))
+		} else {
+			f.SetCellFormula(paysheet, "J"+srowx, strconv.Itoa(intval(PayTot)))
 		}
-		//f.SetCellInt(paysheet, "J"+srowx, intval(PayTot))
-		f.SetCellFormula(paysheet, "J"+srowx, "H"+srowx+"+"+strconv.Itoa(intCash)+"+"+strconv.Itoa(intval(PayTot)))
 
 		if Paid == "Unpaid" {
 			f.SetCellValue(paysheet, "K"+srowx, " UNPAID")
@@ -375,39 +391,45 @@ func main() {
 	}
 	f.SetCellValue(totsheet, "A3", "Number of riders")
 	f.SetCellValue(totsheet, "A4", "Number of pillions")
-	f.SetCellValue(totsheet, "A5", "Number of novices")
+	f.SetCellValue(totsheet, "A5", "Number of "+cfg.Novice+"s")
 	f.SetCellValue(totsheet, "A6", "Number of IBA members")
-	f.SetCellValue(totsheet, "A7", "Nearest to Squires")
-	f.SetCellValue(totsheet, "A8", "Furthest from Squires")
-	f.SetCellValue(totsheet, "A9", "Camping at Squires")
-	f.SetCellValue(totsheet, "A10", "Funds raised for Poppy Appeal")
-	f.SetCellValue(totsheet, "A11", "A - North clockwise")
-	f.SetCellValue(totsheet, "A12", "B - North anti-clockwise")
-	f.SetCellValue(totsheet, "A13", "C - South clockwise")
-	f.SetCellValue(totsheet, "A14", "D - South anti-clockwise")
-	f.SetCellValue(totsheet, "A15", "E - 500 clockwise")
-	f.SetCellValue(totsheet, "A16", "F - 500 anti-clockwise")
+	if cfg.Rally == "rblr" {
+		f.SetCellValue(totsheet, "A7", "Nearest to Squires")
+		f.SetCellValue(totsheet, "A8", "Furthest from Squires")
+		f.SetCellValue(totsheet, "A9", "Camping at Squires")
+		f.SetCellValue(totsheet, "A10", "Funds raised for Poppy Appeal")
+		f.SetCellValue(totsheet, "A11", "A - North clockwise")
+		f.SetCellValue(totsheet, "A12", "B - North anti-clockwise")
+		f.SetCellValue(totsheet, "A13", "C - South clockwise")
+		f.SetCellValue(totsheet, "A14", "D - South anti-clockwise")
+		f.SetCellValue(totsheet, "A15", "E - 500 clockwise")
+		f.SetCellValue(totsheet, "A16", "F - 500 anti-clockwise")
+	}
 
 	f.SetCellInt(totsheet, "B3", numRiders)
 	f.SetCellInt(totsheet, "B4", numPillions)
 	f.SetCellInt(totsheet, "B5", numNovices)
 	f.SetCellInt(totsheet, "B6", ibamembers)
-	f.SetCellInt(totsheet, "B7", shortestSquires)
-	f.SetCellInt(totsheet, "B8", longestSquires)
-	f.SetCellInt(totsheet, "B9", camping)
-	f.SetCellFormula(totsheet, "B10", paysheet+"!I"+strconv.Itoa(srow+1))
-	f.SetCellFormula(totsheet, "B11", regsheet+"!M"+strconv.Itoa(srow+1))
-	f.SetCellFormula(totsheet, "B12", regsheet+"!N"+strconv.Itoa(srow+1))
-	f.SetCellFormula(totsheet, "B13", regsheet+"!O"+strconv.Itoa(srow+1))
-	f.SetCellFormula(totsheet, "B14", regsheet+"!P"+strconv.Itoa(srow+1))
-	f.SetCellFormula(totsheet, "B15", regsheet+"!Q"+strconv.Itoa(srow+1))
-	f.SetCellFormula(totsheet, "B16", regsheet+"!R"+strconv.Itoa(srow+1))
+	if cfg.Rally == "rblr" {
+		f.SetCellInt(totsheet, "B7", shortestSquires)
+		f.SetCellInt(totsheet, "B8", longestSquires)
+		f.SetCellInt(totsheet, "B9", camping)
+		f.SetCellFormula(totsheet, "B10", paysheet+"!I"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B11", regsheet+"!M"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B12", regsheet+"!N"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B13", regsheet+"!O"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B14", regsheet+"!P"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B15", regsheet+"!Q"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B16", regsheet+"!R"+strconv.Itoa(srow+1))
+	}
 
 	f.SetCellStyle(regsheet, "B1", "D1", styleH)
 	f.SetCellStyle(regsheet, "K1", "X1", styleH)
 	f.SetCellStyle(regsheet, "A2", "D"+srowx, styleV)
 	f.SetCellStyle(noksheet, "A2", "A"+srowx, styleV)
-	f.SetCellStyle(regsheet, "K2", "X"+srowx, styleV)
+	if cfg.Rally == "rblr" {
+		f.SetCellStyle(regsheet, "K2", "X"+srowx, styleV)
+	}
 	f.SetCellStyle(regsheet, "G2", "J"+srowx, styleV2)
 
 	f.SetCellStyle(paysheet, "A2", "A"+srowx, styleV)
@@ -446,12 +468,18 @@ func main() {
 	f.SetCellValue(paysheet, "C1", "Rider(last)")
 	f.SetCellValue(paysheet, "D1", "Entry")
 	f.SetCellValue(paysheet, "E1", "Pillion")
-	f.SetCellValue(paysheet, "F1", "T-shirts")
-	f.SetCellValue(paysheet, "G1", "Patches")
-	f.SetCellValue(paysheet, "H1", "Cheque @ Squires")
-	f.SetCellValue(paysheet, "I1", "Total Sponsorship")
+	if len(cfg.Tshirts) > 0 {
+		f.SetCellValue(paysheet, "F1", "T-shirts")
+	}
+	if cfg.Patchavail {
+		f.SetCellValue(paysheet, "G1", "Patches")
+	}
+	if cfg.Sponsorship {
+		f.SetCellValue(paysheet, "H1", cfg.Fundsonday)
+		f.SetCellValue(paysheet, "I1", "Total Sponsorship")
+	}
 	//f.SetCellValue(paysheet, "K1", "+Cash")
-	f.SetCellValue(paysheet, "J1", "Total cash")
+	f.SetCellValue(paysheet, "J1", "Total received")
 	f.SetCellValue(paysheet, "K1", " !!!")
 	f.SetColWidth(paysheet, "B", "B", 12)
 	f.SetColWidth(paysheet, "C", "C", 12)
@@ -488,26 +516,30 @@ func main() {
 	f.SetColWidth(regsheet, "I", "I", 10)
 	f.SetCellValue(regsheet, "J1", "Model")
 	f.SetColWidth(regsheet, "J", "J", 20)
-	f.SetCellValue(regsheet, "K1", " Miles to Squires")
-	f.SetColWidth(regsheet, "K", "K", 5)
 
-	f.SetCellValue(regsheet, "L1", " Camping")
-	f.SetColWidth(regsheet, "L", "X", 3)
+	if cfg.Rally == "rblr" {
+		f.SetCellValue(regsheet, "K1", " Miles to Squires")
+		f.SetColWidth(regsheet, "K", "K", 5)
 
-	f.SetCellValue(regsheet, "M1", " A-NC")
-	f.SetCellValue(regsheet, "N1", " B-NAC")
-	f.SetCellValue(regsheet, "O1", " C-SC")
-	f.SetCellValue(regsheet, "P1", " D-SAC")
-	f.SetCellValue(regsheet, "Q1", " E-500C")
-	f.SetCellValue(regsheet, "R1", " F-500AC")
+		f.SetCellValue(regsheet, "L1", " Camping")
+		f.SetColWidth(regsheet, "L", "X", 3)
 
-	f.SetCellValue(regsheet, "S1", " T-shirt S")
-	f.SetCellValue(regsheet, "T1", " T-shirt M")
-	f.SetCellValue(regsheet, "U1", " T-shirt L")
-	f.SetCellValue(regsheet, "V1", " T-shirt XL")
-	f.SetCellValue(regsheet, "W1", " T-shirt XXL")
+		f.SetCellValue(regsheet, "M1", " A-NC")
+		f.SetCellValue(regsheet, "N1", " B-NAC")
+		f.SetCellValue(regsheet, "O1", " C-SC")
+		f.SetCellValue(regsheet, "P1", " D-SAC")
+		f.SetCellValue(regsheet, "Q1", " E-500C")
+		f.SetCellValue(regsheet, "R1", " F-500AC")
 
-	f.SetCellValue(regsheet, "X1", " Patches")
+		f.SetCellValue(regsheet, "S1", " T-shirt S")
+		f.SetCellValue(regsheet, "T1", " T-shirt M")
+		f.SetCellValue(regsheet, "U1", " T-shirt L")
+		f.SetCellValue(regsheet, "V1", " T-shirt XL")
+		f.SetCellValue(regsheet, "W1", " T-shirt XXL")
+
+		f.SetCellValue(regsheet, "X1", " Patches")
+
+	}
 
 	f.SetRowHeight(regsheet, 1, 70)
 	f.SetRowHeight(noksheet, 1, 20)
@@ -582,11 +614,7 @@ func loadCSVFile(db *sql.DB) {
 		}
 
 		sqlx := "INSERT INTO entrants ("
-		if *csvReport {
-			sqlx += dbFieldsReport
-		} else {
-			sqlx += dbFields
-		}
+		sqlx += dbfieldsx
 		sqlx += ") VALUES("
 
 		for i := 0; i < len(record); i++ {
@@ -620,7 +648,7 @@ func makeSQLTable(db *sql.DB) {
 	}
 	db.Exec("PRAGMA foreign_keys=OFF")
 	db.Exec("BEGIN TRANSACTION")
-	_, err = db.Exec("CREATE TABLE entrants (" + dbFields + ")")
+	_, err = db.Exec("CREATE TABLE entrants (" + dbfieldsx + ")")
 	if err != nil {
 		log.Fatal(err)
 	}
