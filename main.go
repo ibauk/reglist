@@ -150,6 +150,14 @@ func main() {
 
 	fmt.Print(apptitle)
 
+	var cfg *Config
+	var cfgerr error
+	cfg, cfgerr = NewConfig("rblr.yml")
+	if cfgerr != nil {
+		log.Fatal(cfgerr)
+	}
+	fmt.Printf("%v\n\n", *cfg)
+
 	db, err := sql.Open("sqlite3", *sqlName)
 	if err != nil {
 		log.Fatal(err)
