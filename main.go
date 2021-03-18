@@ -199,7 +199,7 @@ func main() {
 	renameSheet(f, &bikesheet, "Bikes")
 	renameSheet(f, &paysheet, "Money")
 	renameSheet(f, &totsheet, "Stats")
-	renameSheet(f, &chksheet, "Checkouts")
+	renameSheet(f, &chksheet, "Carpark")
 
 	f.SetCellStyle(regsheet, "A1", "A1", styleH2)
 	f.SetCellStyle(regsheet, "E1", "J1", styleH2)
@@ -600,6 +600,12 @@ func main() {
 		f.SetCellInt(bikesheet, "B"+strconv.Itoa(srow), bikes[i].num)
 		f.SetCellStyle(bikesheet, "B"+strconv.Itoa(srow), "B"+strconv.Itoa(srow), styleV3)
 		f.SetRowHeight(bikesheet, srow, 30)
+
+		f.SetCellValue(totsheet, "E"+strconv.Itoa(srow+1), bikes[i].make)
+		f.SetCellInt(totsheet, "F"+strconv.Itoa(srow+1), bikes[i].num)
+		f.SetCellStyle(totsheet, "F"+strconv.Itoa(srow+1), "F"+strconv.Itoa(srow), styleV3)
+		f.SetColWidth(totsheet, "E", "E", 12)
+
 		ntot += bikes[i].num
 		srow++
 	}
@@ -610,6 +616,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	f.DeleteSheet(bikesheet) // Don't need this, refer to the stats instead
 
 	// Save spreadsheet by the given path.
 	if err := f.SaveAs(*xlsName); err != nil {
