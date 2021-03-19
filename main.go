@@ -100,6 +100,15 @@ func proper(x string) string {
 
 }
 
+func properName(x string) string {
+	var xx = strings.TrimSpace(x)
+	if strings.ToUpper(xx) == xx || strings.ToLower(xx) == xx {
+		return strings.Title(strings.ToLower(xx))
+	}
+	return xx
+
+}
+
 func showRecordCount(db *sql.DB) {
 
 	rows, err := db.Query("SELECT count(*) FROM entrants;")
@@ -192,7 +201,7 @@ func main() {
 	f.NewSheet(totsheet)
 	formatSheet(f, totsheet, false)
 	f.NewSheet(chksheet)
-	formatSheet(f, chksheet, true)
+	formatSheet(f, chksheet, false)
 
 	renameSheet(f, &regsheet, "Overview")
 	renameSheet(f, &noksheet, "NOK list")
@@ -265,6 +274,12 @@ func main() {
 		if err2 != nil {
 			log.Fatal(err2)
 		}
+
+		RiderFirst = properName(RiderFirst)
+		RiderLast = properName(RiderLast)
+		PillionFirst = properName(PillionFirst)
+		PillionLast = properName(PillionLast)
+
 		//fmt.Printf("%v %v\n", RiderFirst, RiderLast)
 		var tottshirts int = 0
 
@@ -319,6 +334,7 @@ func main() {
 
 		f.SetCellValue(chksheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(chksheet, "C"+srowx, strings.Title(RiderLast))
+		f.SetCellValue(chksheet, "D"+srowx, strings.Title(Bike))
 
 		f.SetCellValue(noksheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(noksheet, "C"+srowx, strings.Title(RiderLast))
@@ -367,6 +383,9 @@ func main() {
 			col = strings.Index("ABCDEF", string(Route[0]))
 			f.SetCellInt(regsheet, string(cols[col])+srowx, 1)
 		}
+
+		f.SetCellFormula(chksheet, "E"+srowx, regsheet+"!"+string(cols[col])+"1")
+
 		cols = "STUVW"
 		for col = 0; col < len(tshirts); col++ {
 			if tshirts[col] > 0 {
@@ -445,18 +464,19 @@ func main() {
 	} else {
 		f.SetCellStyle(regsheet, "A2", "A"+srowx, styleV)
 	}
-	f.SetCellStyle(chksheet, "A2", "A"+srowx, styleV)
-	f.SetCellStyle(chksheet, "D2", "E"+srowx, styleV)
+	f.SetCellStyle(chksheet, "A2", "C"+srowx, styleV2)
+	f.SetCellStyle(chksheet, "F2", "G"+srowx, styleV)
+	f.SetCellStyle(chksheet, "H2", "H"+srowx, styleV2)
 
 	f.SetCellStyle(regsheet, "K1", "X1", styleH)
-	f.SetCellStyle(noksheet, "A2", "A"+srowx, styleV)
+	f.SetCellStyle(noksheet, "A2", "A"+srowx, styleV3)
 	if cfg.Rally == "rblr" {
-		f.SetCellStyle(chksheet, "F2", "F"+srowx, styleV)
+		f.SetCellStyle(chksheet, "D2", "E"+srowx, styleV2)
 		f.SetCellStyle(regsheet, "K2", "X"+srowx, styleV)
 	}
 	f.SetCellStyle(regsheet, "G2", "J"+srowx, styleV2)
 
-	f.SetCellStyle(paysheet, "A2", "A"+srowx, styleV)
+	f.SetCellStyle(paysheet, "A2", "A"+srowx, styleV3)
 	f.SetCellStyle(paysheet, "D2", "J"+srowx, styleV)
 	f.SetCellStyle(paysheet, "K2", "K"+srowx, styleT)
 
@@ -497,12 +517,17 @@ func main() {
 	f.SetCellValue(paysheet, "C1", "Rider(last)")
 	f.SetCellValue(chksheet, "B1", "Rider(first)")
 	f.SetCellValue(chksheet, "C1", "Rider(last)")
-	f.SetCellValue(chksheet, "D1", "Odo")
-	f.SetCellValue(chksheet, "E1", "Time")
+	f.SetCellValue(chksheet, "D1", "Bike")
+	f.SetCellValue(chksheet, "F1", "Odo")
+	f.SetCellValue(chksheet, "G1", "Time")
 
 	if cfg.Rally == "rblr" {
-		f.SetCellValue(chksheet, "F1", "Route")
+		f.SetCellValue(chksheet, "E1", "Route")
+		f.SetCellStyle(chksheet, "E1", "E1", styleH2)
 	}
+
+	f.SetCellValue(chksheet, "H1", "Notes")
+	f.SetCellStyle(chksheet, "A1", "H1", styleH2)
 
 	f.SetCellValue(paysheet, "D1", "Entry")
 	f.SetCellValue(paysheet, "E1", "Pillion")
@@ -532,6 +557,8 @@ func main() {
 	f.SetColWidth(regsheet, "F", "F", 12)
 
 	f.SetColWidth(chksheet, "B", "C", 12)
+	f.SetColWidth(chksheet, "D", "D", 30)
+	f.SetColWidth(chksheet, "H", "H", 40)
 
 	f.SetColWidth(regsheet, "G", "G", 8)
 
