@@ -34,7 +34,7 @@ var sqlName *string = flag.String("sql", "rblrdata.db", "Path to SQLite database
 var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
 
-const apptitle = "IBAUK Reglist v0.0.5\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v0.0.6\nCopyright (c) 2021 Bob Stammers\n\n"
 
 //const basicEntryFee = 20
 //const pillionEntryFee = 10
@@ -66,7 +66,7 @@ ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
 ifnull(EntryId,''),ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,''),
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),
-ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,'')`
+ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,''),ifnull(RiderNumber,'')`
 
 const sqlx_rally = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -75,7 +75,7 @@ ifnull(Tshirt1,''),ifnull(Tshirt2,''),
 ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
 ifnull(EntryId,''),ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
-ifnull(NoviceRider,''),ifnull(NovicePillion,'')`
+ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(RiderNumber,'')`
 
 var sqlx string
 
@@ -84,12 +84,14 @@ var styleH, styleH2, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleRJ
 func fieldlistFromConfig(cols []string) string {
 
 	var res string = ""
+
 	for i := 0; i < len(cols); i++ {
 		if i > 0 {
 			res += ","
 		}
 		res += "\"" + cols[i] + "\""
 	}
+
 	return res
 }
 
@@ -264,6 +266,8 @@ func main() {
 		var Sponsor, Paid, Cash string
 		var novicerider, novicepillion string
 		var miles2squires, freecamping string
+		var entrantid int
+		var manualridernumber string
 
 		// This needs to be at least as big as the number of sizes declared
 		numtsizes := len(cfg.Tshirts)
@@ -277,11 +281,11 @@ func main() {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
 				&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
-				&miles2squires, &freecamping)
+				&miles2squires, &freecamping, &manualridernumber)
 		} else {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &T1, &T2,
-				&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Paid, &novicerider, &novicepillion)
+				&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Paid, &novicerider, &novicepillion, &manualridernumber)
 		}
 		if err2 != nil {
 			log.Fatal(err2)
@@ -292,6 +296,10 @@ func main() {
 		PillionFirst = properName(PillionFirst)
 		PillionLast = properName(PillionLast)
 
+		entrantid = intval(EntryID) + cfg.Add2entrantid
+		if intval(manualridernumber) > 0 {
+			entrantid = intval(manualridernumber)
+		}
 		//fmt.Printf("%v %v\n", RiderFirst, RiderLast)
 		var tottshirts int = 0
 
@@ -337,15 +345,15 @@ func main() {
 			}
 		}
 
-		f.SetCellInt(overviewsheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
-		f.SetCellInt(regsheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
-		f.SetCellInt(chksheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
-		f.SetCellInt(noksheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
-		f.SetCellInt(paysheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
+		f.SetCellInt(overviewsheet, "A"+srowx, entrantid)
+		f.SetCellInt(regsheet, "A"+srowx, entrantid)
+		f.SetCellInt(chksheet, "A"+srowx, entrantid)
+		f.SetCellInt(noksheet, "A"+srowx, entrantid)
+		f.SetCellInt(paysheet, "A"+srowx, entrantid)
 		f.SetCellValue(overviewsheet, "E"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(overviewsheet, "F"+srowx, strings.Title(RiderLast))
 
-		f.SetCellInt(shopsheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
+		f.SetCellInt(shopsheet, "A"+srowx, entrantid)
 		f.SetCellValue(shopsheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(shopsheet, "C"+srowx, strings.Title(RiderLast))
 
@@ -798,13 +806,17 @@ func loadCSVFile(db *sql.DB) {
 
 func makeSQLTable(db *sql.DB) {
 
+	var x string = ""
+	if !strings.Contains(strings.ToLower(dbfieldsx), "ridernumber") {
+		x = ",RiderNumber"
+	}
 	_, err := db.Exec("DROP TABLE IF EXISTS entrants")
 	if err != nil {
 		log.Fatal(err)
 	}
 	db.Exec("PRAGMA foreign_keys=OFF")
 	db.Exec("BEGIN TRANSACTION")
-	_, err = db.Exec("CREATE TABLE entrants (" + dbfieldsx + ")")
+	_, err = db.Exec("CREATE TABLE entrants (" + dbfieldsx + x + ")")
 	if err != nil {
 		log.Fatal(err)
 	}
