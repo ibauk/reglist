@@ -77,7 +77,7 @@ ifnull(NoviceRider,''),ifnull(NovicePillion,'')`
 
 var sqlx string
 
-var styleH, styleH2, styleT, styleV, styleV2, styleV3, styleW, styleRJ int
+var styleH, styleH2, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleRJ int
 
 func fieldlistFromConfig(cols []string) string {
 
@@ -464,14 +464,14 @@ func main() {
 	} else {
 		f.SetCellStyle(regsheet, "A2", "A"+srowx, styleV)
 	}
-	f.SetCellStyle(chksheet, "A2", "C"+srowx, styleV2)
+	f.SetCellStyle(chksheet, "A2", "A"+srowx, styleV2)
+	f.SetCellStyle(chksheet, "B2", "E"+srowx, styleV2L)
 	f.SetCellStyle(chksheet, "F2", "G"+srowx, styleV)
 	f.SetCellStyle(chksheet, "H2", "H"+srowx, styleV2)
 
 	f.SetCellStyle(regsheet, "K1", "X1", styleH)
 	f.SetCellStyle(noksheet, "A2", "A"+srowx, styleV3)
 	if cfg.Rally == "rblr" {
-		f.SetCellStyle(chksheet, "D2", "E"+srowx, styleV2)
 		f.SetCellStyle(regsheet, "K2", "X"+srowx, styleV)
 	}
 	f.SetCellStyle(regsheet, "G2", "J"+srowx, styleV2)
@@ -833,6 +833,27 @@ func initStyles(f *excelize.File) {
 			"alignment":
 			{
 				"horizontal": "center",
+				"ident": 1,
+				"justify_last_line": true,
+				"reading_order": 0,
+				"relative_indent": 1,
+				"shrink_to_fit": true,
+				"text_rotation": 0,
+				"vertical": "",
+				"wrap_text": true
+			},
+			"border": [
+				{
+					"type": "bottom",
+					"color": "000000",
+					"style": 1
+				}]		
+		}`)
+
+	styleV2L, _ = f.NewStyle(`{
+			"alignment":
+			{
+				"horizontal": "left",
 				"ident": 1,
 				"justify_last_line": true,
 				"reading_order": 0,
