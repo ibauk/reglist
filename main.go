@@ -573,6 +573,8 @@ func main() {
 	f.SetCellValue(regsheet, "H1", "Pillion")
 	f.SetColWidth(regsheet, "H", "H", 19)
 
+	f.SetColVisible(regsheet, "B:D", false)
+
 	f.SetCellValue(regsheet, "I1", "Make")
 	f.SetColWidth(regsheet, "I", "I", 10)
 	f.SetCellValue(regsheet, "J1", "Model")
