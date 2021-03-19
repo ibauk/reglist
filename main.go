@@ -55,6 +55,7 @@ var paysheet string = "Sheet4"
 var totsheet string = "Sheet5"
 var chksheet string = "Sheet6"
 var regsheet string = "Sheet7"
+var shopsheet string = "Sheet8"
 
 const sqlx_rblr = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -199,6 +200,8 @@ func main() {
 	formatSheet(f, noksheet, false)
 	f.NewSheet(bikesheet)
 	formatSheet(f, bikesheet, false)
+	f.NewSheet(shopsheet)
+	formatSheet(f, shopsheet, false)
 	f.NewSheet(paysheet)
 	formatSheet(f, paysheet, false)
 	f.NewSheet(totsheet)
@@ -213,6 +216,7 @@ func main() {
 	renameSheet(f, &totsheet, "Stats")
 	renameSheet(f, &chksheet, "Carpark")
 	renameSheet(f, &regsheet, "Registration")
+	renameSheet(f, &shopsheet, "Shop")
 
 	f.SetCellStyle(overviewsheet, "A1", "A1", styleH2)
 	f.SetCellStyle(overviewsheet, "E1", "J1", styleH2)
@@ -341,6 +345,10 @@ func main() {
 		f.SetCellValue(overviewsheet, "E"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(overviewsheet, "F"+srowx, strings.Title(RiderLast))
 
+		f.SetCellInt(shopsheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
+		f.SetCellValue(shopsheet, "B"+srowx, strings.Title(RiderFirst))
+		f.SetCellValue(shopsheet, "C"+srowx, strings.Title(RiderLast))
+
 		f.SetCellValue(chksheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(chksheet, "C"+srowx, strings.Title(RiderLast))
 		f.SetCellValue(chksheet, "D"+srowx, strings.Title(Bike))
@@ -399,10 +407,17 @@ func main() {
 		if cfg.Rally == "rblr" {
 			col = strings.Index("ABCDEF", string(Route[0]))
 			f.SetCellInt(overviewsheet, string(cols[col])+srowx, 1)
+
+			f.SetCellFormula(chksheet, "E"+srowx, overviewsheet+"!"+string(cols[col])+"1")
+			f.SetCellFormula(regsheet, "I"+srowx, overviewsheet+"!"+string(cols[col])+"1")
 		}
 
-		f.SetCellFormula(chksheet, "E"+srowx, overviewsheet+"!"+string(cols[col])+"1")
-		f.SetCellFormula(regsheet, "I"+srowx, overviewsheet+"!"+string(cols[col])+"1")
+		cols = "DEFGH"
+		for col = 0; col < len(tshirts); col++ {
+			if tshirts[col] > 0 {
+				f.SetCellInt(shopsheet, string(cols[col])+srowx, tshirts[col])
+			}
+		}
 
 		cols = "STUVW"
 		for col = 0; col < len(tshirts); col++ {
@@ -414,6 +429,7 @@ func main() {
 		if cfg.Patchavail && npatches > 0 {
 			f.SetCellInt(overviewsheet, "X"+srowx, npatches)
 			f.SetCellInt(paysheet, "G"+srowx, npatches*cfg.Patchcost)
+			f.SetCellInt(shopsheet, "I"+srowx, npatches)
 		}
 
 		if cfg.Sponsorship {
@@ -487,6 +503,10 @@ func main() {
 	f.SetCellStyle(chksheet, "F2", "G"+srowx, styleV)
 	f.SetCellStyle(chksheet, "H2", "H"+srowx, styleV2)
 
+	f.SetCellStyle(shopsheet, "A2", "A"+srowx, styleV2)
+	f.SetCellStyle(shopsheet, "B2", "C"+srowx, styleV2L)
+	f.SetCellStyle(shopsheet, "D2", "I"+srowx, styleV2)
+
 	f.SetCellStyle(regsheet, "A2", "A"+srowx, styleV2)
 	f.SetCellStyle(regsheet, "B2", "C"+srowx, styleV2L)
 	f.SetCellStyle(regsheet, "D2", "D"+srowx, styleV)
@@ -533,6 +553,13 @@ func main() {
 	f.SetColWidth(noksheet, "A", "A", 5)
 	f.SetColWidth(paysheet, "A", "A", 5)
 	f.SetColWidth(regsheet, "A", "A", 5)
+
+	f.SetCellValue(shopsheet, "A1", "No.")
+	f.SetColWidth(shopsheet, "A", "A", 5)
+	f.SetCellValue(shopsheet, "B1", "Rider(first)")
+	f.SetCellValue(shopsheet, "C1", "Rider(last)")
+	f.SetColWidth(shopsheet, "B", "I", 12)
+	f.SetCellStyle(shopsheet, "A1", "I1", styleH2)
 
 	f.SetColWidth(overviewsheet, "B", "D", 1)
 	f.SetColWidth(regsheet, "B", "C", 12)
@@ -650,6 +677,13 @@ func main() {
 
 		f.SetCellValue(overviewsheet, "X1", " Patches")
 
+		f.SetCellValue(shopsheet, "D1", " T-shirt S")
+		f.SetCellValue(shopsheet, "E1", " T-shirt M")
+		f.SetCellValue(shopsheet, "F1", " T-shirt L")
+		f.SetCellValue(shopsheet, "G1", " T-shirt XL")
+		f.SetCellValue(shopsheet, "H1", " T-shirt XXL")
+
+		f.SetCellValue(shopsheet, "I1", " Patches")
 	}
 
 	f.SetRowHeight(overviewsheet, 1, 70)
@@ -684,6 +718,9 @@ func main() {
 	}
 
 	f.DeleteSheet(bikesheet) // Don't need this, refer to the stats instead
+	if len(cfg.Tshirts) < 1 && !cfg.Patchavail {
+		f.DeleteSheet(shopsheet)
+	}
 
 	// Save spreadsheet by the given path.
 	if err := f.SaveAs(*xlsName); err != nil {
