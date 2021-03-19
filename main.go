@@ -48,12 +48,13 @@ const apptitle = "IBAUK Reglist v0.0.5\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var dbfieldsx string
 
-var regsheet string = "Sheet1"
+var overviewsheet string = "Sheet1"
 var noksheet string = "Sheet2"
 var bikesheet string = "Sheet3"
 var paysheet string = "Sheet4"
 var totsheet string = "Sheet5"
 var chksheet string = "Sheet6"
+var regsheet string = "Sheet7"
 
 const sqlx_rblr = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -191,6 +192,8 @@ func main() {
 
 	initStyles(f)
 	// First sheet is called Sheet1
+	formatSheet(f, overviewsheet, false)
+	f.NewSheet(regsheet)
 	formatSheet(f, regsheet, false)
 	f.NewSheet(noksheet)
 	formatSheet(f, noksheet, false)
@@ -203,15 +206,20 @@ func main() {
 	f.NewSheet(chksheet)
 	formatSheet(f, chksheet, false)
 
-	renameSheet(f, &regsheet, "Overview")
+	renameSheet(f, &overviewsheet, "Overview")
 	renameSheet(f, &noksheet, "NOK list")
 	renameSheet(f, &bikesheet, "Bikes")
 	renameSheet(f, &paysheet, "Money")
 	renameSheet(f, &totsheet, "Stats")
 	renameSheet(f, &chksheet, "Carpark")
+	renameSheet(f, &regsheet, "Registration")
 
-	f.SetCellStyle(regsheet, "A1", "A1", styleH2)
-	f.SetCellStyle(regsheet, "E1", "J1", styleH2)
+	f.SetCellStyle(overviewsheet, "A1", "A1", styleH2)
+	f.SetCellStyle(overviewsheet, "E1", "J1", styleH2)
+	f.SetCellStyle(regsheet, "A1", "H1", styleH2)
+	if cfg.Rally == "rblr" {
+		f.SetCellStyle(regsheet, "I1", "J1", styleH2)
+	}
 	f.SetCellStyle(noksheet, "A1", "G1", styleH2)
 
 	f.SetCellStyle(bikesheet, "A1", "B1", styleH2)
@@ -325,16 +333,20 @@ func main() {
 			}
 		}
 
+		f.SetCellInt(overviewsheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
 		f.SetCellInt(regsheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
 		f.SetCellInt(chksheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
 		f.SetCellInt(noksheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
 		f.SetCellInt(paysheet, "A"+srowx, intval(EntryID)+cfg.Add2entrantid)
-		f.SetCellValue(regsheet, "E"+srowx, strings.Title(RiderFirst))
-		f.SetCellValue(regsheet, "F"+srowx, strings.Title(RiderLast))
+		f.SetCellValue(overviewsheet, "E"+srowx, strings.Title(RiderFirst))
+		f.SetCellValue(overviewsheet, "F"+srowx, strings.Title(RiderLast))
 
 		f.SetCellValue(chksheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(chksheet, "C"+srowx, strings.Title(RiderLast))
 		f.SetCellValue(chksheet, "D"+srowx, strings.Title(Bike))
+
+		f.SetCellValue(regsheet, "B"+srowx, strings.Title(RiderFirst))
+		f.SetCellValue(regsheet, "C"+srowx, strings.Title(RiderLast))
 
 		f.SetCellValue(noksheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(noksheet, "C"+srowx, strings.Title(RiderLast))
@@ -369,32 +381,38 @@ func main() {
 		f.SetCellValue(noksheet, "F"+srowx, strings.Title(NokRelation))
 		f.SetCellValue(noksheet, "G"+srowx, NokNumber)
 
-		f.SetCellValue(regsheet, "G"+srowx, fmtIBA(RiderIBA))
-		f.SetCellValue(regsheet, "H"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
-		f.SetCellValue(regsheet, "I"+srowx, proper(Make))
-		f.SetCellValue(regsheet, "J"+srowx, proper(Model))
-		f.SetCellValue(regsheet, "K"+srowx, Miles)
+		f.SetCellValue(overviewsheet, "G"+srowx, fmtIBA(RiderIBA))
+
+		f.SetCellValue(regsheet, "E"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
+		f.SetCellValue(regsheet, "G"+srowx, proper(Make)+" "+proper(Model))
+
+		f.SetCellValue(overviewsheet, "H"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
+		f.SetCellValue(overviewsheet, "I"+srowx, proper(Make))
+		f.SetCellValue(overviewsheet, "J"+srowx, proper(Model))
+
+		f.SetCellValue(overviewsheet, "K"+srowx, Miles)
 		if Camp == "Yes" && cfg.Rally == "rblr" {
-			f.SetCellInt(regsheet, "L"+srowx, 1)
+			f.SetCellInt(overviewsheet, "L"+srowx, 1)
 		}
 		var cols string = "MNOPQR"
 		var col int = 0
 		if cfg.Rally == "rblr" {
 			col = strings.Index("ABCDEF", string(Route[0]))
-			f.SetCellInt(regsheet, string(cols[col])+srowx, 1)
+			f.SetCellInt(overviewsheet, string(cols[col])+srowx, 1)
 		}
 
-		f.SetCellFormula(chksheet, "E"+srowx, regsheet+"!"+string(cols[col])+"1")
+		f.SetCellFormula(chksheet, "E"+srowx, overviewsheet+"!"+string(cols[col])+"1")
+		f.SetCellFormula(regsheet, "I"+srowx, overviewsheet+"!"+string(cols[col])+"1")
 
 		cols = "STUVW"
 		for col = 0; col < len(tshirts); col++ {
 			if tshirts[col] > 0 {
-				f.SetCellInt(regsheet, string(cols[col])+srowx, tshirts[col])
+				f.SetCellInt(overviewsheet, string(cols[col])+srowx, tshirts[col])
 			}
 		}
 		npatches := intval(Patches)
 		if cfg.Patchavail && npatches > 0 {
-			f.SetCellInt(regsheet, "X"+srowx, npatches)
+			f.SetCellInt(overviewsheet, "X"+srowx, npatches)
 			f.SetCellInt(paysheet, "G"+srowx, npatches*cfg.Patchcost)
 		}
 
@@ -453,28 +471,38 @@ func main() {
 		f.SetCellInt(totsheet, "B8", longestSquires)
 		f.SetCellInt(totsheet, "B9", camping)
 		f.SetCellFormula(totsheet, "B10", paysheet+"!I"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B11", regsheet+"!M"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B12", regsheet+"!N"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B13", regsheet+"!O"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B14", regsheet+"!P"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B15", regsheet+"!Q"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B16", regsheet+"!R"+strconv.Itoa(srow+1))
-		f.SetCellStyle(regsheet, "B1", "D1", styleH)
-		f.SetCellStyle(regsheet, "A2", "F"+srowx, styleV2)
+		f.SetCellFormula(totsheet, "B11", overviewsheet+"!M"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B12", overviewsheet+"!N"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B13", overviewsheet+"!O"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B14", overviewsheet+"!P"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B15", overviewsheet+"!Q"+strconv.Itoa(srow+1))
+		f.SetCellFormula(totsheet, "B16", overviewsheet+"!R"+strconv.Itoa(srow+1))
+		f.SetCellStyle(overviewsheet, "B1", "D1", styleH)
+		f.SetCellStyle(overviewsheet, "A2", "F"+srowx, styleV2)
 	} else {
-		f.SetCellStyle(regsheet, "A2", "A"+srowx, styleV)
+		f.SetCellStyle(overviewsheet, "A2", "A"+srowx, styleV)
 	}
 	f.SetCellStyle(chksheet, "A2", "A"+srowx, styleV2)
 	f.SetCellStyle(chksheet, "B2", "E"+srowx, styleV2L)
 	f.SetCellStyle(chksheet, "F2", "G"+srowx, styleV)
 	f.SetCellStyle(chksheet, "H2", "H"+srowx, styleV2)
 
-	f.SetCellStyle(regsheet, "K1", "X1", styleH)
+	f.SetCellStyle(regsheet, "A2", "A"+srowx, styleV2)
+	f.SetCellStyle(regsheet, "B2", "C"+srowx, styleV2L)
+	f.SetCellStyle(regsheet, "D2", "D"+srowx, styleV)
+	f.SetCellStyle(regsheet, "E2", "E"+srowx, styleV2L)
+	f.SetCellStyle(regsheet, "F2", "F"+srowx, styleV)
+	f.SetCellStyle(regsheet, "G2", "G"+srowx, styleV2L)
+	f.SetCellStyle(regsheet, "H2", "H"+srowx, styleV)
+
+	f.SetCellStyle(overviewsheet, "K1", "X1", styleH)
 	f.SetCellStyle(noksheet, "A2", "A"+srowx, styleV3)
 	if cfg.Rally == "rblr" {
-		f.SetCellStyle(regsheet, "K2", "X"+srowx, styleV)
+		f.SetCellStyle(overviewsheet, "K2", "X"+srowx, styleV)
+		f.SetCellStyle(regsheet, "I2", "I"+srowx, styleV2)
+		f.SetCellStyle(regsheet, "J2", "J"+srowx, styleV)
 	}
-	f.SetCellStyle(regsheet, "G2", "J"+srowx, styleV2)
+	f.SetCellStyle(overviewsheet, "G2", "J"+srowx, styleV2)
 
 	f.SetCellStyle(paysheet, "A2", "A"+srowx, styleV3)
 	f.SetCellStyle(paysheet, "D2", "J"+srowx, styleV)
@@ -485,8 +513,8 @@ func main() {
 	// L to X
 	for _, c := range "LMNOPQRSTUVWX" {
 		ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
-		f.SetCellFormula(regsheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
-		f.SetCellStyle(regsheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
+		f.SetCellFormula(overviewsheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
+		f.SetCellStyle(overviewsheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
 	}
 
 	for _, c := range "DEFGHIJKL" {
@@ -496,27 +524,45 @@ func main() {
 	}
 
 	f.SetActiveSheet(0)
-	f.SetCellValue(regsheet, "A1", "No.")
+	f.SetCellValue(overviewsheet, "A1", "No.")
 	f.SetCellValue(noksheet, "A1", "No.")
 	f.SetCellValue(paysheet, "A1", "No.")
 	f.SetCellValue(chksheet, "A1", "No.")
-	f.SetColWidth(regsheet, "A", "A", 5)
+	f.SetCellValue(regsheet, "A1", "No.")
+	f.SetColWidth(overviewsheet, "A", "A", 5)
 	f.SetColWidth(noksheet, "A", "A", 5)
 	f.SetColWidth(paysheet, "A", "A", 5)
+	f.SetColWidth(regsheet, "A", "A", 5)
 
-	f.SetColWidth(regsheet, "B", "D", 1)
+	f.SetColWidth(overviewsheet, "B", "D", 1)
+	f.SetColWidth(regsheet, "B", "C", 12)
 
+	f.SetColWidth(regsheet, "D", "D", 5)
+	f.SetColWidth(regsheet, "E", "E", 20)
+	f.SetColWidth(regsheet, "F", "F", 5)
+	f.SetColWidth(regsheet, "G", "G", 30)
+	f.SetColWidth(regsheet, "H", "H", 5)
+	f.SetColWidth(regsheet, "I", "I", 10)
+	f.SetColWidth(regsheet, "J", "J", 5)
+
+	f.SetCellValue(regsheet, "B1", "Rider(first)")
+	f.SetCellValue(regsheet, "C1", "Rider(last)")
+	f.SetCellValue(regsheet, "D1", "✓")
 	f.SetCellValue(paysheet, "B1", "Rider(first)")
 	f.SetCellValue(paysheet, "C1", "Rider(last)")
 	f.SetCellValue(chksheet, "B1", "Rider(first)")
 	f.SetCellValue(chksheet, "C1", "Rider(last)")
 	f.SetCellValue(chksheet, "D1", "Bike")
+	f.SetCellValue(regsheet, "E1", "Pillion")
+	f.SetCellValue(regsheet, "F1", "✓")
 	f.SetCellValue(chksheet, "F1", "Odo")
 	f.SetCellValue(chksheet, "G1", "Time")
 
 	if cfg.Rally == "rblr" {
 		f.SetCellValue(chksheet, "E1", "Route")
 		f.SetCellStyle(chksheet, "E1", "E1", styleH2)
+		f.SetCellValue(regsheet, "I1", "Route")
+		f.SetCellValue(regsheet, "J1", "✓")
 	}
 
 	f.SetCellValue(chksheet, "H1", "Notes")
@@ -524,6 +570,8 @@ func main() {
 
 	f.SetCellValue(paysheet, "D1", "Entry")
 	f.SetCellValue(paysheet, "E1", "Pillion")
+	f.SetCellValue(regsheet, "G1", "Bike")
+	f.SetCellValue(regsheet, "H1", "✓")
 	if len(cfg.Tshirts) > 0 {
 		f.SetCellValue(paysheet, "F1", "T-shirts")
 	}
@@ -544,16 +592,16 @@ func main() {
 	f.SetColWidth(paysheet, "J", "J", 15)
 	f.SetColWidth(paysheet, "K", "K", 15)
 
-	f.SetCellValue(regsheet, "E1", "Rider(first)")
-	f.SetCellValue(regsheet, "F1", "Rider(last)")
-	f.SetColWidth(regsheet, "E", "E", 12)
-	f.SetColWidth(regsheet, "F", "F", 12)
+	f.SetCellValue(overviewsheet, "E1", "Rider(first)")
+	f.SetCellValue(overviewsheet, "F1", "Rider(last)")
+	f.SetColWidth(overviewsheet, "E", "E", 12)
+	f.SetColWidth(overviewsheet, "F", "F", 12)
 
 	f.SetColWidth(chksheet, "B", "C", 12)
 	f.SetColWidth(chksheet, "D", "D", 30)
 	f.SetColWidth(chksheet, "H", "H", 40)
 
-	f.SetColWidth(regsheet, "G", "G", 8)
+	f.SetColWidth(overviewsheet, "G", "G", 8)
 
 	f.SetCellValue(noksheet, "B1", "Rider(first)")
 	f.SetCellValue(noksheet, "C1", "Rider(last)")
@@ -569,42 +617,42 @@ func main() {
 	f.SetCellValue(bikesheet, "B1", "Number")
 	f.SetColWidth(bikesheet, "A", "A", 10)
 
-	f.SetCellValue(regsheet, "G1", "IBA #")
-	f.SetCellValue(regsheet, "H1", "Pillion")
-	f.SetColWidth(regsheet, "H", "H", 19)
+	f.SetCellValue(overviewsheet, "G1", "IBA #")
+	f.SetCellValue(overviewsheet, "H1", "Pillion")
+	f.SetColWidth(overviewsheet, "H", "H", 19)
 
-	f.SetColVisible(regsheet, "B:D", false)
+	f.SetColVisible(overviewsheet, "B:D", false)
 
-	f.SetCellValue(regsheet, "I1", "Make")
-	f.SetColWidth(regsheet, "I", "I", 10)
-	f.SetCellValue(regsheet, "J1", "Model")
-	f.SetColWidth(regsheet, "J", "J", 20)
+	f.SetCellValue(overviewsheet, "I1", "Make")
+	f.SetColWidth(overviewsheet, "I", "I", 10)
+	f.SetCellValue(overviewsheet, "J1", "Model")
+	f.SetColWidth(overviewsheet, "J", "J", 20)
 
 	if cfg.Rally == "rblr" {
-		f.SetCellValue(regsheet, "K1", " Miles to Squires")
-		f.SetColWidth(regsheet, "K", "K", 5)
+		f.SetCellValue(overviewsheet, "K1", " Miles to Squires")
+		f.SetColWidth(overviewsheet, "K", "K", 5)
 
-		f.SetCellValue(regsheet, "L1", " Camping")
-		f.SetColWidth(regsheet, "L", "X", 3)
+		f.SetCellValue(overviewsheet, "L1", " Camping")
+		f.SetColWidth(overviewsheet, "L", "X", 3)
 
-		f.SetCellValue(regsheet, "M1", " A-NC")
-		f.SetCellValue(regsheet, "N1", " B-NAC")
-		f.SetCellValue(regsheet, "O1", " C-SC")
-		f.SetCellValue(regsheet, "P1", " D-SAC")
-		f.SetCellValue(regsheet, "Q1", " E-500C")
-		f.SetCellValue(regsheet, "R1", " F-500AC")
+		f.SetCellValue(overviewsheet, "M1", " A-NC")
+		f.SetCellValue(overviewsheet, "N1", " B-NAC")
+		f.SetCellValue(overviewsheet, "O1", " C-SC")
+		f.SetCellValue(overviewsheet, "P1", " D-SAC")
+		f.SetCellValue(overviewsheet, "Q1", " E-500C")
+		f.SetCellValue(overviewsheet, "R1", " F-500AC")
 
-		f.SetCellValue(regsheet, "S1", " T-shirt S")
-		f.SetCellValue(regsheet, "T1", " T-shirt M")
-		f.SetCellValue(regsheet, "U1", " T-shirt L")
-		f.SetCellValue(regsheet, "V1", " T-shirt XL")
-		f.SetCellValue(regsheet, "W1", " T-shirt XXL")
+		f.SetCellValue(overviewsheet, "S1", " T-shirt S")
+		f.SetCellValue(overviewsheet, "T1", " T-shirt M")
+		f.SetCellValue(overviewsheet, "U1", " T-shirt L")
+		f.SetCellValue(overviewsheet, "V1", " T-shirt XL")
+		f.SetCellValue(overviewsheet, "W1", " T-shirt XXL")
 
-		f.SetCellValue(regsheet, "X1", " Patches")
+		f.SetCellValue(overviewsheet, "X1", " Patches")
 
 	}
 
-	f.SetRowHeight(regsheet, 1, 70)
+	f.SetRowHeight(overviewsheet, 1, 70)
 	f.SetRowHeight(noksheet, 1, 20)
 	f.SetRowHeight(bikesheet, 1, 20)
 	f.SetRowHeight(paysheet, 1, 70)
