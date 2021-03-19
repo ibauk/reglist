@@ -33,15 +33,11 @@ var csvReport *bool = flag.Bool("rpt", false, "CSV downloaded from Wufoo report"
 var sqlName *string = flag.String("sql", "rblrdata.db", "Path to SQLite database")
 var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
+var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 
 const apptitle = "IBAUK Reglist v0.0.6\nCopyright (c) 2021 Bob Stammers\n\n"
 
-//const basicEntryFee = 20
-//const pillionEntryFee = 10
-//const patchprice = 5
-//const tshirtprice = 10
-
-//var tshirtsizes = [...]string{"S", "M", "L", "XL", "XXL"}
+var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 
 // dbFields must be kept in sync with the downloaded CSV from Wufoo
 // Fieldnames don't matter but the order and number both do
@@ -163,6 +159,7 @@ func main() {
 
 	fmt.Print(apptitle)
 
+	fmt.Printf("%v\n", rblr_routes[1])
 	var cfg *Config
 	var cfgerr error
 	cfg, cfgerr = NewConfig(*rally + ".yml")
@@ -416,8 +413,8 @@ func main() {
 			col = strings.Index("ABCDEF", string(Route[0]))
 			f.SetCellInt(overviewsheet, string(cols[col])+srowx, 1)
 
-			f.SetCellFormula(chksheet, "E"+srowx, overviewsheet+"!"+string(cols[col])+"1")
-			f.SetCellFormula(regsheet, "I"+srowx, overviewsheet+"!"+string(cols[col])+"1")
+			f.SetCellValue(chksheet, "E"+srowx, rblr_routes[col])
+			f.SetCellValue(regsheet, "I"+srowx, rblr_routes[col])
 		}
 
 		cols = "DEFGH"
@@ -442,21 +439,28 @@ func main() {
 
 		if cfg.Sponsorship {
 			// This extracts a number if present from either "Include ..." or "I'll bring ..."
-			Sponsorship := strconv.Itoa(intval(Sponsor)) // "50"
-
-			sf := "H" + srowx + "+" + Sponsorship
-			f.SetCellFormula(paysheet, "I"+srowx, "if("+sf+"=0,\"0\","+sf+")")
+			Sponsorship := intval(Sponsor) // "50"
 			intCash := intval(Cash)
 
-			f.SetCellFormula(paysheet, "J"+srowx, "H"+srowx+"+"+strconv.Itoa(intCash)+"+"+strconv.Itoa(intval(PayTot)))
+			if *safemode {
+				if Sponsorship != 0 {
+					f.SetCellInt(paysheet, "I"+srowx, Sponsorship)
+				}
+				f.SetCellInt(paysheet, "J"+srowx, intCash+intval(PayTot))
+			} else {
+				sf := "H" + srowx + "+" + strconv.Itoa(Sponsorship)
+				f.SetCellFormula(paysheet, "I"+srowx, "if("+sf+"=0,\"0\","+sf+")")
+				f.SetCellFormula(paysheet, "J"+srowx, "H"+srowx+"+"+strconv.Itoa(intCash)+"+"+strconv.Itoa(intval(PayTot)))
+			}
+
 		} else {
-			f.SetCellFormula(paysheet, "J"+srowx, strconv.Itoa(intval(PayTot)))
+			f.SetCellInt(paysheet, "J"+srowx, intval(PayTot))
 		}
 
 		if Paid == "Unpaid" {
 			f.SetCellValue(paysheet, "K"+srowx, " UNPAID")
 			f.SetCellStyle(paysheet, "K"+srowx, "K"+srowx, styleW)
-		} else {
+		} else if !*safemode {
 			ff := "J" + srowx + "-(sum(D" + srowx + ":G" + srowx + ")+I" + srowx + ")"
 			f.SetCellFormula(paysheet, "K"+srowx, "if("+ff+"=0,\"\","+ff+")")
 		}
@@ -670,12 +674,12 @@ func main() {
 		f.SetCellValue(overviewsheet, "L1", " Camping")
 		f.SetColWidth(overviewsheet, "L", "X", 3)
 
-		f.SetCellValue(overviewsheet, "M1", " A-NC")
-		f.SetCellValue(overviewsheet, "N1", " B-NAC")
-		f.SetCellValue(overviewsheet, "O1", " C-SC")
-		f.SetCellValue(overviewsheet, "P1", " D-SAC")
-		f.SetCellValue(overviewsheet, "Q1", " E-500C")
-		f.SetCellValue(overviewsheet, "R1", " F-500AC")
+		f.SetCellValue(overviewsheet, "M1", rblr_routes[0])
+		f.SetCellValue(overviewsheet, "N1", rblr_routes[1])
+		f.SetCellValue(overviewsheet, "O1", rblr_routes[2])
+		f.SetCellValue(overviewsheet, "P1", rblr_routes[3])
+		f.SetCellValue(overviewsheet, "Q1", rblr_routes[4])
+		f.SetCellValue(overviewsheet, "R1", rblr_routes[5])
 
 		f.SetCellValue(overviewsheet, "S1", " T-shirt S")
 		f.SetCellValue(overviewsheet, "T1", " T-shirt M")
