@@ -460,7 +460,7 @@ func main() {
 		f.SetCellFormula(totsheet, "B15", regsheet+"!Q"+strconv.Itoa(srow+1))
 		f.SetCellFormula(totsheet, "B16", regsheet+"!R"+strconv.Itoa(srow+1))
 		f.SetCellStyle(regsheet, "B1", "D1", styleH)
-		f.SetCellStyle(regsheet, "A2", "D"+srowx, styleV)
+		f.SetCellStyle(regsheet, "A2", "F"+srowx, styleV2)
 	} else {
 		f.SetCellStyle(regsheet, "A2", "A"+srowx, styleV)
 	}
@@ -504,14 +504,7 @@ func main() {
 	f.SetColWidth(noksheet, "A", "A", 5)
 	f.SetColWidth(paysheet, "A", "A", 5)
 
-	if cfg.Rally == "rblr" {
-		f.SetCellValue(regsheet, "B1", " Registered")
-		f.SetCellValue(regsheet, "C1", " Started")
-		f.SetCellValue(regsheet, "D1", " Finished")
-		f.SetColWidth(regsheet, "B", "D", 3)
-	} else {
-		f.SetColWidth(regsheet, "B", "D", 1)
-	}
+	f.SetColWidth(regsheet, "B", "D", 1)
 
 	f.SetCellValue(paysheet, "B1", "Rider(first)")
 	f.SetCellValue(paysheet, "C1", "Rider(last)")
@@ -578,11 +571,7 @@ func main() {
 
 	f.SetCellValue(regsheet, "G1", "IBA #")
 	f.SetCellValue(regsheet, "H1", "Pillion")
-	if cfg.Rally == "rblr" {
-		f.SetColWidth(regsheet, "H", "H", 12)
-	} else {
-		f.SetColWidth(regsheet, "H", "H", 15)
-	}
+	f.SetColWidth(regsheet, "H", "H", 19)
 
 	f.SetCellValue(regsheet, "I1", "Make")
 	f.SetColWidth(regsheet, "I", "I", 10)
