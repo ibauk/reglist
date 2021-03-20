@@ -633,6 +633,34 @@ func main() {
 		}
 	}
 
+	// Shop totals
+	ncol, _ = excelize.ColumnNameToNumber("D")
+
+	if *safemode {
+		for i := 0; i < numtsizes; i++ {
+			xcol, _ = excelize.ColumnNumberToName(ncol)
+			f.SetCellStyle(shopsheet, xcol+srowt, xcol+srowt, styleT)
+			if tottshirts[i] > 0 {
+				f.SetCellInt(shopsheet, xcol+srowt, tottshirts[i])
+			}
+			ncol++
+		}
+		if cfg.Patchavail {
+			xcol, _ = excelize.ColumnNumberToName(ncol)
+			f.SetCellStyle(shopsheet, xcol+srowt, xcol+srowt, styleT)
+			if totpatches > 0 {
+				f.SetCellInt(shopsheet, xcol+srowt, totpatches)
+			}
+			ncol++
+		}
+	} else {
+		for _, c := range "DEFGHI" {
+			ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
+			f.SetCellFormula(shopsheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
+			f.SetCellStyle(shopsheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
+		}
+	}
+
 	if *safemode {
 		// paysheet totals
 		ncol, _ = excelize.ColumnNameToNumber("D")
