@@ -22,6 +22,7 @@ type Config struct {
 	Fundsonday    string   `yaml:"fundsonday"`
 	Novice        string   `yaml:"novice"`
 	Add2entrantid int      `yaml:"add2entrantid"`
+	EntrantOrder  string   `yaml:"entrantorder"`
 }
 
 // NewConfig returns a new decoded Config struct

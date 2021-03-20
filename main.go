@@ -179,9 +179,9 @@ func init() {
 	}
 
 	if cfg.Rally == "rblr" {
-		sqlx = "SELECT " + sqlx_rblr + " FROM entrants ORDER BY upper(RiderLast),upper(RiderName)"
+		sqlx = "SELECT " + sqlx_rblr + " FROM entrants ORDER BY " + cfg.EntrantOrder
 	} else {
-		sqlx = "SELECT " + sqlx_rally + " FROM entrants ORDER BY upper(RiderLast),upper(RiderName)"
+		sqlx = "SELECT " + sqlx_rally + " FROM entrants ORDER BY " + cfg.EntrantOrder
 	}
 	var err error
 	db, err = sql.Open("sqlite3", *sqlName)

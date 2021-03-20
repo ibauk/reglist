@@ -43,4 +43,5 @@ sponsorship: true
 fundsonday: Cheque @ Squires
 novice: novice
 add2entrantid: 0
+entrantorder: upper(RiderLast),upper(RiderName)
 
