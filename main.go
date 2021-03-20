@@ -81,6 +81,10 @@ var sqlx string
 
 var styleH, styleH2, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleRJ int
 
+var cfg *Config
+
+var db *sql.DB
+
 func fieldlistFromConfig(cols []string) string {
 
 	var res string = ""
@@ -158,18 +162,17 @@ func formatSheet(f *excelize.File, sheetName string, portrait bool) {
 
 }
 
-func main() {
+func init() {
+
 	flag.Parse()
 
 	fmt.Print(apptitle)
 
-	var cfg *Config
 	var cfgerr error
 	cfg, cfgerr = NewConfig(*rally + ".yml")
 	if cfgerr != nil {
 		log.Fatal(cfgerr)
 	}
-
 	if *csvReport {
 		dbfieldsx = fieldlistFromConfig(cfg.Rfields)
 	} else {
@@ -181,18 +184,17 @@ func main() {
 	} else {
 		sqlx = "SELECT " + sqlx_rally + " FROM entrants ORDER BY upper(RiderLast),upper(RiderName)"
 	}
-
-	db, err := sql.Open("sqlite3", *sqlName)
+	var err error
+	db, err = sql.Open("sqlite3", *sqlName)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if !*noCSV {
-		loadCSVFile(db)
-	}
-	showRecordCount(db)
+
+}
+
+func initSpreadsheet() *excelize.File {
 
 	f := excelize.NewFile()
-
 	initStyles(f)
 	// First sheet is called Sheet1
 	formatSheet(f, overviewsheet, false)
@@ -220,8 +222,11 @@ func main() {
 	renameSheet(f, &regsheet, "Registration")
 	renameSheet(f, &shopsheet, "Shop")
 
+	// Set heading styles
 	f.SetCellStyle(overviewsheet, "A1", "A1", styleH2)
 	f.SetCellStyle(overviewsheet, "E1", "J1", styleH2)
+	f.SetCellStyle(overviewsheet, "K1", "X1", styleH)
+
 	f.SetCellStyle(regsheet, "A1", "H1", styleH2)
 	if cfg.Rally == "rblr" {
 		f.SetCellStyle(regsheet, "I1", "J1", styleH2)
@@ -232,6 +237,22 @@ func main() {
 	f.SetCellStyle(paysheet, "A1", "K1", styleH2)
 
 	f.SetCellStyle(chksheet, "A1", "A1", styleH2)
+	f.SetCellStyle(chksheet, "A1", "H1", styleH2)
+
+	f.SetCellStyle(shopsheet, "A1", "I1", styleH2)
+
+	return f
+
+}
+
+func main() {
+
+	if !*noCSV {
+		loadCSVFile(db)
+	}
+	showRecordCount(db)
+
+	f := initSpreadsheet()
 
 	rows1, err1 := db.Query(sqlx)
 	if err1 != nil {
@@ -250,21 +271,21 @@ func main() {
 	var numNovices int = 0
 	var shortestSquires int = 9999
 	var longestSquires int = 0
-	var camping int = 0
-	var ibamembers int = 0
-	var totpatches int = 0
-	var grandtottshirts int = 0
+	var numCamping int = 0
+	var numIBAMembers int = 0
+	var totPatches int = 0
+	var grandTotalTShirts int = 0
 	var totSponsorship int = 0
 	var totCash int = 0
 	var totPayment int = 0
 
 	// This needs to be at least as big as the number of sizes declared
-	numtsizes := len(cfg.Tshirts)
-	if numtsizes > max_tshirt_sizes {
-		numtsizes = max_tshirt_sizes
+	num_tshirt_sizes := len(cfg.Tshirts)
+	if num_tshirt_sizes > max_tshirt_sizes {
+		num_tshirt_sizes = max_tshirt_sizes
 	}
 	var tshirts [max_tshirt_sizes]int
-	var tottshirts [max_tshirt_sizes]int = [max_tshirt_sizes]int{0}
+	var totTShirts [max_tshirt_sizes]int = [max_tshirt_sizes]int{0}
 
 	for rows1.Next() {
 		var RiderFirst string
@@ -283,7 +304,7 @@ func main() {
 		var manualridernumber string
 		var feesdue int = 0
 
-		for i := 0; i < numtsizes; i++ {
+		for i := 0; i < num_tshirt_sizes; i++ {
 			tshirts[i] = 0
 		}
 
@@ -313,37 +334,49 @@ func main() {
 		}
 		//fmt.Printf("%v %v\n", RiderFirst, RiderLast)
 
-		for i := 0; i < numtsizes; i++ {
+		for i := 0; i < num_tshirt_sizes; i++ {
 			if cfg.Tshirts[i] == T1 {
 				tshirts[i]++
-				tottshirts[i]++
-				grandtottshirts++
+				totTShirts[i]++
+				grandTotalTShirts++
 			}
 			if cfg.Tshirts[i] == T2 {
 				tshirts[i]++
-				tottshirts[i]++
-				grandtottshirts++
+				totTShirts[i]++
+				grandTotalTShirts++
 			}
 		}
 		srowx = strconv.Itoa(srow)
 
 		Make, Model = extractMakeModel(Bike)
 
-		var i int
+		// Count the bikes by Make
 		var ok bool = true
-		for i = 0; i < len(bikes); i++ {
+		for i := 0; i < len(bikes); i++ {
 			if bikes[i].make == Make {
 				bikes[i].num++
 				ok = false
 			}
 		}
-
-		if ok {
+		if ok { // Add a new make tothe list
 			bm := bikemake{Make, 1}
 			bikes = append(bikes, bm)
 		}
 
 		numRiders++
+
+		if strings.Contains(novicerider, cfg.Novice) {
+			numNovices++
+		}
+		if strings.Contains(novicepillion, cfg.Novice) {
+			numNovices++
+		}
+		if RiderIBA != "" {
+			numIBAMembers++
+		}
+		if PillionIBA != "" {
+			numIBAMembers++
+		}
 
 		if cfg.Rally == "rblr" {
 			if intval(miles2squires) < shortestSquires {
@@ -353,36 +386,35 @@ func main() {
 				longestSquires = intval(miles2squires)
 			}
 			if freecamping == "Yes" {
-				camping++
+				numCamping++
 			}
 		}
 
+		// Entrant IDs
 		f.SetCellInt(overviewsheet, "A"+srowx, entrantid)
 		f.SetCellInt(regsheet, "A"+srowx, entrantid)
-		f.SetCellInt(chksheet, "A"+srowx, entrantid)
 		f.SetCellInt(noksheet, "A"+srowx, entrantid)
 		f.SetCellInt(paysheet, "A"+srowx, entrantid)
+		f.SetCellInt(shopsheet, "A"+srowx, entrantid)
+		f.SetCellInt(chksheet, "A"+srowx, entrantid)
+
+		// Rider names
 		f.SetCellValue(overviewsheet, "E"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(overviewsheet, "F"+srowx, strings.Title(RiderLast))
-
-		f.SetCellInt(shopsheet, "A"+srowx, entrantid)
-		f.SetCellValue(shopsheet, "B"+srowx, strings.Title(RiderFirst))
-		f.SetCellValue(shopsheet, "C"+srowx, strings.Title(RiderLast))
-
-		f.SetCellValue(chksheet, "B"+srowx, strings.Title(RiderFirst))
-		f.SetCellValue(chksheet, "C"+srowx, strings.Title(RiderLast))
-		f.SetCellValue(chksheet, "D"+srowx, strings.Title(Bike))
-
 		f.SetCellValue(regsheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(regsheet, "C"+srowx, strings.Title(RiderLast))
-
 		f.SetCellValue(noksheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(noksheet, "C"+srowx, strings.Title(RiderLast))
 		f.SetCellValue(paysheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(paysheet, "C"+srowx, strings.Title(RiderLast))
+		f.SetCellValue(shopsheet, "B"+srowx, strings.Title(RiderFirst))
+		f.SetCellValue(shopsheet, "C"+srowx, strings.Title(RiderLast))
+		f.SetCellValue(chksheet, "B"+srowx, strings.Title(RiderFirst))
+		f.SetCellValue(chksheet, "C"+srowx, strings.Title(RiderLast))
+		f.SetCellValue(chksheet, "D"+srowx, strings.Title(Bike))
 
+		// Fees on Money tab
 		f.SetCellInt(paysheet, "D"+srowx, cfg.Riderfee) // Basic entry fee
-
 		feesdue += cfg.Riderfee
 
 		if PillionFirst != "" && PillionLast != "" {
@@ -390,78 +422,21 @@ func main() {
 			numPillions++
 			feesdue += cfg.Pillionfee
 		}
-		nt := 0
-		for i := 0; i < numtsizes; i++ {
+		var nt int = 0
+		for i := 0; i < len(tshirts); i++ {
 			nt += tshirts[i]
 		}
-
 		if nt > 0 {
 			f.SetCellInt(paysheet, "F"+srowx, cfg.Tshirtcost*nt)
 			feesdue += nt * cfg.Tshirtcost
 		}
 
-		if strings.Contains(novicerider, cfg.Novice) {
-			numNovices++
-		}
-		if strings.Contains(novicepillion, cfg.Novice) {
-			numNovices++
-		}
-		if RiderIBA != "" {
-			ibamembers++
-		}
-		if PillionIBA != "" {
-			ibamembers++
-		}
-
-		f.SetCellValue(noksheet, "D"+srowx, Mobile)
-		f.SetCellValue(noksheet, "E"+srowx, strings.Title(NokName))
-		f.SetCellValue(noksheet, "F"+srowx, strings.Title(NokRelation))
-		f.SetCellValue(noksheet, "G"+srowx, NokNumber)
-
-		f.SetCellValue(overviewsheet, "G"+srowx, fmtIBA(RiderIBA))
-
-		f.SetCellValue(regsheet, "E"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
-		f.SetCellValue(regsheet, "G"+srowx, proper(Make)+" "+proper(Model))
-
-		f.SetCellValue(overviewsheet, "H"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
-		f.SetCellValue(overviewsheet, "I"+srowx, proper(Make))
-		f.SetCellValue(overviewsheet, "J"+srowx, proper(Model))
-
-		f.SetCellValue(overviewsheet, "K"+srowx, Miles)
-		if Camp == "Yes" && cfg.Rally == "rblr" {
-			f.SetCellInt(overviewsheet, "L"+srowx, 1)
-		}
-		var cols string = "MNOPQR"
-		var col int = 0
-		if cfg.Rally == "rblr" {
-			col = strings.Index("ABCDEF", string(Route[0])) // Which route is being ridden. Compare the A -, B -, ...
-			f.SetCellInt(overviewsheet, string(cols[col])+srowx, 1)
-
-			f.SetCellValue(chksheet, "E"+srowx, rblr_routes[col]) // Carpark
-			f.SetCellValue(regsheet, "I"+srowx, rblr_routes[col]) // Registration
-
-			rblr_routes_ridden[col]++
-		}
-
-		cols = "DEFGH"
-		for col = 0; col < len(tshirts); col++ {
-			if tshirts[col] > 0 {
-				f.SetCellInt(shopsheet, string(cols[col])+srowx, tshirts[col])
-			}
-		}
-
-		cols = "STUVW"
-		for col = 0; col < len(tshirts); col++ {
-			if tshirts[col] > 0 {
-				f.SetCellInt(overviewsheet, string(cols[col])+srowx, tshirts[col])
-			}
-		}
 		npatches := intval(Patches)
-		totpatches += npatches
+		totPatches += npatches
 		if cfg.Patchavail && npatches > 0 {
-			f.SetCellInt(overviewsheet, "X"+srowx, npatches)
+			f.SetCellInt(overviewsheet, "X"+srowx, npatches) // Overview tab
 			f.SetCellInt(paysheet, "G"+srowx, npatches*cfg.Patchcost)
-			f.SetCellInt(shopsheet, "I"+srowx, npatches)
+			f.SetCellInt(shopsheet, "I"+srowx, npatches) // Shop tab
 			feesdue += npatches * cfg.Patchcost
 		}
 
@@ -502,6 +477,55 @@ func main() {
 				f.SetCellInt(paysheet, "K"+srowx, due)
 			}
 		}
+
+		// NOK List
+		f.SetCellValue(noksheet, "D"+srowx, Mobile)
+		f.SetCellValue(noksheet, "E"+srowx, strings.Title(NokName))
+		f.SetCellValue(noksheet, "F"+srowx, strings.Title(NokRelation))
+		f.SetCellValue(noksheet, "G"+srowx, NokNumber)
+
+		// Registration log
+		f.SetCellValue(regsheet, "E"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
+		f.SetCellValue(regsheet, "G"+srowx, proper(Make)+" "+proper(Model))
+
+		// Overview
+		f.SetCellValue(overviewsheet, "G"+srowx, fmtIBA(RiderIBA))
+
+		f.SetCellValue(overviewsheet, "H"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
+		f.SetCellValue(overviewsheet, "I"+srowx, proper(Make))
+		f.SetCellValue(overviewsheet, "J"+srowx, proper(Model))
+
+		f.SetCellValue(overviewsheet, "K"+srowx, Miles)
+
+		if Camp == "Yes" && cfg.Rally == "rblr" {
+			f.SetCellInt(overviewsheet, "L"+srowx, 1)
+		}
+		var cols string = "MNOPQR"
+		var col int = 0
+		if cfg.Rally == "rblr" {
+			col = strings.Index("ABCDEF", string(Route[0])) // Which route is being ridden. Compare the A -, B -, ...
+			f.SetCellInt(overviewsheet, string(cols[col])+srowx, 1)
+
+			f.SetCellValue(chksheet, "E"+srowx, rblr_routes[col]) // Carpark
+			f.SetCellValue(regsheet, "I"+srowx, rblr_routes[col]) // Registration
+
+			rblr_routes_ridden[col]++
+		}
+
+		cols = "DEFGH"
+		for col = 0; col < len(tshirts); col++ {
+			if tshirts[col] > 0 {
+				f.SetCellInt(shopsheet, string(cols[col])+srowx, tshirts[col])
+			}
+		}
+
+		cols = "STUVW"
+		for col = 0; col < len(tshirts); col++ {
+			if tshirts[col] > 0 {
+				f.SetCellInt(overviewsheet, string(cols[col])+srowx, tshirts[col])
+			}
+		}
+
 		srow++
 	}
 
@@ -531,11 +555,12 @@ func main() {
 	f.SetCellInt(totsheet, "B3", numRiders)
 	f.SetCellInt(totsheet, "B4", numPillions)
 	f.SetCellInt(totsheet, "B5", numNovices)
-	f.SetCellInt(totsheet, "B6", ibamembers)
+	f.SetCellInt(totsheet, "B6", numIBAMembers)
+
 	if cfg.Rally == "rblr" {
 		f.SetCellInt(totsheet, "B7", shortestSquires)
 		f.SetCellInt(totsheet, "B8", longestSquires)
-		f.SetCellInt(totsheet, "B9", camping)
+		f.SetCellInt(totsheet, "B9", numCamping)
 		if *safemode {
 
 			f.SetCellInt(totsheet, "B10", totSponsorship)
@@ -555,8 +580,7 @@ func main() {
 				r++
 			}
 		}
-		f.SetCellStyle(overviewsheet, "B1", "D1", styleH)
-		f.SetCellStyle(overviewsheet, "A2", "F"+srowx, styleV2)
+		f.SetCellStyle(overviewsheet, "A2", "A"+srowx, styleV2)
 	} else {
 		f.SetCellStyle(overviewsheet, "A2", "A"+srowx, styleV)
 	}
@@ -577,13 +601,14 @@ func main() {
 	f.SetCellStyle(regsheet, "G2", "G"+srowx, styleV2L)
 	f.SetCellStyle(regsheet, "H2", "H"+srowx, styleV)
 
-	f.SetCellStyle(overviewsheet, "K1", "X1", styleH)
 	f.SetCellStyle(noksheet, "A2", "A"+srowx, styleV3)
+
 	if cfg.Rally == "rblr" {
 		f.SetCellStyle(overviewsheet, "K2", "X"+srowx, styleV)
 		f.SetCellStyle(regsheet, "I2", "I"+srowx, styleV2)
 		f.SetCellStyle(regsheet, "J2", "J"+srowx, styleV)
 	}
+
 	f.SetCellStyle(overviewsheet, "G2", "J"+srowx, styleV2)
 
 	f.SetCellStyle(paysheet, "A2", "A"+srowx, styleV3)
@@ -600,7 +625,7 @@ func main() {
 		xcol, _ = excelize.ColumnNumberToName(ncol)
 		f.SetCellStyle(overviewsheet, xcol+srowt, xcol+srowt, styleT)
 		if cfg.Rally == "rblr" {
-			f.SetCellInt(overviewsheet, xcol+srowt, camping)
+			f.SetCellInt(overviewsheet, xcol+srowt, numCamping)
 		}
 		ncol++
 		for i := 0; i < len(rblr_routes_ridden); i++ {
@@ -611,19 +636,19 @@ func main() {
 			}
 			ncol++
 		}
-		for i := 0; i < numtsizes; i++ {
+		for i := 0; i < num_tshirt_sizes; i++ {
 			xcol, _ = excelize.ColumnNumberToName(ncol)
 			f.SetCellStyle(overviewsheet, xcol+srowt, xcol+srowt, styleT)
-			if tottshirts[i] > 0 {
-				f.SetCellInt(overviewsheet, xcol+srowt, tottshirts[i])
+			if totTShirts[i] > 0 {
+				f.SetCellInt(overviewsheet, xcol+srowt, totTShirts[i])
 			}
 			ncol++
 		}
 		if cfg.Patchavail {
 			xcol, _ = excelize.ColumnNumberToName(ncol)
 			f.SetCellStyle(overviewsheet, xcol+srowt, xcol+srowt, styleT)
-			if totpatches > 0 {
-				f.SetCellInt(overviewsheet, xcol+srowt, totpatches)
+			if totPatches > 0 {
+				f.SetCellInt(overviewsheet, xcol+srowt, totPatches)
 			}
 			ncol++
 		}
@@ -639,19 +664,19 @@ func main() {
 	ncol, _ = excelize.ColumnNameToNumber("D")
 
 	if *safemode {
-		for i := 0; i < numtsizes; i++ {
+		for i := 0; i < num_tshirt_sizes; i++ {
 			xcol, _ = excelize.ColumnNumberToName(ncol)
 			f.SetCellStyle(shopsheet, xcol+srowt, xcol+srowt, styleT)
-			if tottshirts[i] > 0 {
-				f.SetCellInt(shopsheet, xcol+srowt, tottshirts[i])
+			if totTShirts[i] > 0 {
+				f.SetCellInt(shopsheet, xcol+srowt, totTShirts[i])
 			}
 			ncol++
 		}
 		if cfg.Patchavail {
 			xcol, _ = excelize.ColumnNumberToName(ncol)
 			f.SetCellStyle(shopsheet, xcol+srowt, xcol+srowt, styleT)
-			if totpatches > 0 {
-				f.SetCellInt(shopsheet, xcol+srowt, totpatches)
+			if totPatches > 0 {
+				f.SetCellInt(shopsheet, xcol+srowt, totPatches)
 			}
 			ncol++
 		}
@@ -685,8 +710,8 @@ func main() {
 		// T-shirts
 		xcol, _ = excelize.ColumnNumberToName(ncol)
 		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
-		moneytot = grandtottshirts * cfg.Tshirtcost
-		if numtsizes > 0 {
+		moneytot = grandTotalTShirts * cfg.Tshirtcost
+		if num_tshirt_sizes > 0 {
 			f.SetCellInt(paysheet, xcol+srowt, moneytot)
 		}
 		ncol++
@@ -694,7 +719,7 @@ func main() {
 		// Patches
 		xcol, _ = excelize.ColumnNumberToName(ncol)
 		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
-		moneytot = totpatches * cfg.Patchcost
+		moneytot = totPatches * cfg.Patchcost
 		if cfg.Patchavail {
 			f.SetCellInt(paysheet, xcol+srowt, moneytot)
 		}
@@ -741,7 +766,6 @@ func main() {
 	f.SetCellValue(shopsheet, "B1", "Rider(first)")
 	f.SetCellValue(shopsheet, "C1", "Rider(last)")
 	f.SetColWidth(shopsheet, "B", "I", 12)
-	f.SetCellStyle(shopsheet, "A1", "I1", styleH2)
 
 	f.SetColWidth(overviewsheet, "B", "D", 1)
 	f.SetColWidth(regsheet, "B", "C", 12)
@@ -769,13 +793,11 @@ func main() {
 
 	if cfg.Rally == "rblr" {
 		f.SetCellValue(chksheet, "E1", "Route")
-		f.SetCellStyle(chksheet, "E1", "E1", styleH2)
 		f.SetCellValue(regsheet, "I1", "Route")
 		f.SetCellValue(regsheet, "J1", "✓")
 	}
 
 	f.SetCellValue(chksheet, "H1", "Notes")
-	f.SetCellStyle(chksheet, "A1", "H1", styleH2)
 
 	f.SetCellValue(paysheet, "D1", "Entry")
 	f.SetCellValue(paysheet, "E1", "Pillion")
@@ -894,7 +916,7 @@ func main() {
 
 	srow++
 	f.SetCellInt(bikesheet, "B"+strconv.Itoa(srow), ntot)
-	err = f.SetCellStyle(bikesheet, "B"+strconv.Itoa(srow), "B"+strconv.Itoa(srow), styleT)
+	err := f.SetCellStyle(bikesheet, "B"+strconv.Itoa(srow), "B"+strconv.Itoa(srow), styleT)
 	if err != nil {
 		log.Fatal(err)
 	}
