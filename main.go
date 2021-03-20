@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	_ "github.com/mattn/go-sqlite3"
@@ -35,7 +36,7 @@ var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 
-const apptitle = "IBAUK Reglist v0.0.6\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v0.0.7\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -903,6 +904,8 @@ func main() {
 		f.DeleteSheet(shopsheet)
 	}
 
+	markSpreadsheet(f, cfg)
+
 	// Save spreadsheet by the given path.
 	if err := f.SaveAs(*xlsName); err != nil {
 		fmt.Println(err)
@@ -1005,6 +1008,30 @@ func intval(x string) int {
 	}
 	n, _ := strconv.Atoi(string(sm[1]))
 	return n
+
+}
+
+func markSpreadsheet(f *excelize.File, cfg *Config) {
+
+	var creator []string = strings.Split(apptitle, "\n")
+
+	var dp excelize.DocProperties
+	dp.Created = time.Now().Format(time.RFC3339)
+	dp.Modified = time.Now().Format(time.RFC3339)
+	dp.Creator = creator[0]
+	dp.LastModifiedBy = creator[0]
+	dp.Subject = cfg.Rally
+	dp.Description = "This reflects the status of " + cfg.Rally + " as at " + time.Now().UTC().Format(time.UnixDate)
+	if *safemode {
+		dp.Description += "\n\nThis spreadsheet holds static values only and will not reflect changed data everywhere."
+	} else {
+		dp.Description += "\n\nThis spreadsheet is active and will reflect changed data everywhere."
+	}
+	dp.Title = "Rally management spreadsheet"
+	err := f.SetDocProps(&dp)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+	}
 
 }
 
