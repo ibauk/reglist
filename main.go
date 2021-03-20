@@ -50,7 +50,6 @@ var dbfieldsx string
 
 var overviewsheet string = "Sheet1"
 var noksheet string = "Sheet2"
-var bikesheet string = "Sheet3"
 var paysheet string = "Sheet4"
 var totsheet string = "Sheet5"
 var chksheet string = "Sheet6"
@@ -202,8 +201,6 @@ func initSpreadsheet() *excelize.File {
 	formatSheet(f, regsheet, false)
 	f.NewSheet(noksheet)
 	formatSheet(f, noksheet, false)
-	f.NewSheet(bikesheet)
-	formatSheet(f, bikesheet, false)
 	f.NewSheet(shopsheet)
 	formatSheet(f, shopsheet, false)
 	f.NewSheet(paysheet)
@@ -215,7 +212,6 @@ func initSpreadsheet() *excelize.File {
 
 	renameSheet(f, &overviewsheet, "Overview")
 	renameSheet(f, &noksheet, "NOK list")
-	renameSheet(f, &bikesheet, "Bikes")
 	renameSheet(f, &paysheet, "Money")
 	renameSheet(f, &totsheet, "Stats")
 	renameSheet(f, &chksheet, "Carpark")
@@ -233,7 +229,6 @@ func initSpreadsheet() *excelize.File {
 	}
 	f.SetCellStyle(noksheet, "A1", "G1", styleH2)
 
-	f.SetCellStyle(bikesheet, "A1", "B1", styleH2)
 	f.SetCellStyle(paysheet, "A1", "K1", styleH2)
 
 	f.SetCellStyle(chksheet, "A1", "A1", styleH2)
@@ -844,10 +839,6 @@ func main() {
 	f.SetCellValue(noksheet, "G1", "Contact number")
 	f.SetColWidth(noksheet, "D", "G", 20)
 
-	f.SetCellValue(bikesheet, "A1", "Make")
-	f.SetCellValue(bikesheet, "B1", "Number")
-	f.SetColWidth(bikesheet, "A", "A", 10)
-
 	f.SetCellValue(overviewsheet, "G1", "IBA #")
 	f.SetCellValue(overviewsheet, "H1", "Pillion")
 	f.SetColWidth(overviewsheet, "H", "H", 19)
@@ -892,7 +883,6 @@ func main() {
 
 	f.SetRowHeight(overviewsheet, 1, 70)
 	f.SetRowHeight(noksheet, 1, 20)
-	f.SetRowHeight(bikesheet, 1, 20)
 	f.SetRowHeight(paysheet, 1, 70)
 
 	sort.Slice(bikes, func(i, j int) bool { return bikes[i].make < bikes[j].make })
@@ -900,10 +890,6 @@ func main() {
 	srow = 2
 	ntot := 0
 	for i := 0; i < len(bikes); i++ {
-		f.SetCellValue(bikesheet, "A"+strconv.Itoa(srow), bikes[i].make)
-		f.SetCellInt(bikesheet, "B"+strconv.Itoa(srow), bikes[i].num)
-		f.SetCellStyle(bikesheet, "B"+strconv.Itoa(srow), "B"+strconv.Itoa(srow), styleV3)
-		f.SetRowHeight(bikesheet, srow, 30)
 
 		f.SetCellValue(totsheet, "E"+strconv.Itoa(srow+1), bikes[i].make)
 		f.SetCellInt(totsheet, "F"+strconv.Itoa(srow+1), bikes[i].num)
@@ -915,13 +901,7 @@ func main() {
 	}
 
 	srow++
-	f.SetCellInt(bikesheet, "B"+strconv.Itoa(srow), ntot)
-	err := f.SetCellStyle(bikesheet, "B"+strconv.Itoa(srow), "B"+strconv.Itoa(srow), styleT)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	f.DeleteSheet(bikesheet) // Don't need this, refer to the stats instead
 	if len(cfg.Tshirts) < 1 && !cfg.Patchavail {
 		f.DeleteSheet(shopsheet)
 	}
