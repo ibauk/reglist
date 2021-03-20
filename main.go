@@ -38,6 +38,9 @@ var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live
 const apptitle = "IBAUK Reglist v0.0.6\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
+var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
+
+const max_tshirt_sizes = 10
 
 // dbFields must be kept in sync with the downloaded CSV from Wufoo
 // Fieldnames don't matter but the order and number both do
@@ -159,7 +162,6 @@ func main() {
 
 	fmt.Print(apptitle)
 
-	fmt.Printf("%v\n", rblr_routes[1])
 	var cfg *Config
 	var cfgerr error
 	cfg, cfgerr = NewConfig(*rally + ".yml")
@@ -249,6 +251,19 @@ func main() {
 	var longestSquires int = 0
 	var camping int = 0
 	var ibamembers int = 0
+	var totpatches int = 0
+	var grandtottshirts int = 0
+	var totSponsorship int = 0
+	var totCash int = 0
+	var totPayment int = 0
+
+	// This needs to be at least as big as the number of sizes declared
+	numtsizes := len(cfg.Tshirts)
+	if numtsizes > max_tshirt_sizes {
+		numtsizes = max_tshirt_sizes
+	}
+	var tshirts [max_tshirt_sizes]int
+	var tottshirts [max_tshirt_sizes]int = [max_tshirt_sizes]int{0}
 
 	for rows1.Next() {
 		var RiderFirst string
@@ -265,10 +280,8 @@ func main() {
 		var miles2squires, freecamping string
 		var entrantid int
 		var manualridernumber string
+		var feesdue int = 0
 
-		// This needs to be at least as big as the number of sizes declared
-		numtsizes := len(cfg.Tshirts)
-		var tshirts [10]int
 		for i := 0; i < numtsizes; i++ {
 			tshirts[i] = 0
 		}
@@ -298,16 +311,17 @@ func main() {
 			entrantid = intval(manualridernumber)
 		}
 		//fmt.Printf("%v %v\n", RiderFirst, RiderLast)
-		var tottshirts int = 0
 
 		for i := 0; i < numtsizes; i++ {
 			if cfg.Tshirts[i] == T1 {
 				tshirts[i]++
-				tottshirts++
+				tottshirts[i]++
+				grandtottshirts++
 			}
 			if cfg.Tshirts[i] == T2 {
 				tshirts[i]++
-				tottshirts++
+				tottshirts[i]++
+				grandtottshirts++
 			}
 		}
 		srowx = strconv.Itoa(srow)
@@ -368,12 +382,21 @@ func main() {
 
 		f.SetCellInt(paysheet, "D"+srowx, cfg.Riderfee) // Basic entry fee
 
+		feesdue += cfg.Riderfee
+
 		if PillionFirst != "" && PillionLast != "" {
 			f.SetCellInt(paysheet, "E"+srowx, cfg.Pillionfee)
 			numPillions++
+			feesdue += cfg.Pillionfee
 		}
-		if tottshirts > 0 {
-			f.SetCellInt(paysheet, "F"+srowx, cfg.Tshirtcost*tottshirts)
+		nt := 0
+		for i := 0; i < numtsizes; i++ {
+			nt += tshirts[i]
+		}
+
+		if nt > 0 {
+			f.SetCellInt(paysheet, "F"+srowx, cfg.Tshirtcost*nt)
+			feesdue += nt * cfg.Tshirtcost
 		}
 
 		if strings.Contains(novicerider, cfg.Novice) {
@@ -410,11 +433,13 @@ func main() {
 		var cols string = "MNOPQR"
 		var col int = 0
 		if cfg.Rally == "rblr" {
-			col = strings.Index("ABCDEF", string(Route[0]))
+			col = strings.Index("ABCDEF", string(Route[0])) // Which route is being ridden. Compare the A -, B -, ...
 			f.SetCellInt(overviewsheet, string(cols[col])+srowx, 1)
 
-			f.SetCellValue(chksheet, "E"+srowx, rblr_routes[col])
-			f.SetCellValue(regsheet, "I"+srowx, rblr_routes[col])
+			f.SetCellValue(chksheet, "E"+srowx, rblr_routes[col]) // Carpark
+			f.SetCellValue(regsheet, "I"+srowx, rblr_routes[col]) // Registration
+
+			rblr_routes_ridden[col]++
 		}
 
 		cols = "DEFGH"
@@ -431,16 +456,23 @@ func main() {
 			}
 		}
 		npatches := intval(Patches)
+		totpatches += npatches
 		if cfg.Patchavail && npatches > 0 {
 			f.SetCellInt(overviewsheet, "X"+srowx, npatches)
 			f.SetCellInt(paysheet, "G"+srowx, npatches*cfg.Patchcost)
 			f.SetCellInt(shopsheet, "I"+srowx, npatches)
+			feesdue += npatches * cfg.Patchcost
 		}
+
+		intCash := intval(Cash)
+		totCash += intCash
+		Sponsorship := 0
+		totPayment += intval(PayTot)
 
 		if cfg.Sponsorship {
 			// This extracts a number if present from either "Include ..." or "I'll bring ..."
-			Sponsorship := intval(Sponsor) // "50"
-			intCash := intval(Cash)
+			Sponsorship = intval(Sponsor) // "50"
+			totSponsorship += Sponsorship
 
 			if *safemode {
 				if Sponsorship != 0 {
@@ -463,6 +495,11 @@ func main() {
 		} else if !*safemode {
 			ff := "J" + srowx + "-(sum(D" + srowx + ":G" + srowx + ")+I" + srowx + ")"
 			f.SetCellFormula(paysheet, "K"+srowx, "if("+ff+"=0,\"\","+ff+")")
+		} else {
+			due := (intval(PayTot) + intCash) - (feesdue + Sponsorship)
+			if due != 0 {
+				f.SetCellInt(paysheet, "K"+srowx, due)
+			}
 		}
 		srow++
 	}
@@ -498,13 +535,24 @@ func main() {
 		f.SetCellInt(totsheet, "B7", shortestSquires)
 		f.SetCellInt(totsheet, "B8", longestSquires)
 		f.SetCellInt(totsheet, "B9", camping)
-		f.SetCellFormula(totsheet, "B10", paysheet+"!I"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B11", overviewsheet+"!M"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B12", overviewsheet+"!N"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B13", overviewsheet+"!O"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B14", overviewsheet+"!P"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B15", overviewsheet+"!Q"+strconv.Itoa(srow+1))
-		f.SetCellFormula(totsheet, "B16", overviewsheet+"!R"+strconv.Itoa(srow+1))
+		if *safemode {
+
+			f.SetCellInt(totsheet, "B10", totSponsorship)
+			r := 11
+			for i := 0; i < len(rblr_routes_ridden); i++ {
+				if rblr_routes_ridden[i] > 0 {
+					f.SetCellInt(totsheet, "B"+strconv.Itoa(r), rblr_routes_ridden[i])
+				}
+				r++
+			}
+		} else {
+			f.SetCellFormula(totsheet, "B10", paysheet+"!I"+strconv.Itoa(srow+1))
+			r := 11
+			c := "MNOPQR"
+			for i := 0; i < len(rblr_routes_ridden); i++ {
+				f.SetCellFormula(totsheet, "B"+strconv.Itoa(r), overviewsheet+"!"+string(c[i])+strconv.Itoa(srow+1))
+			}
+		}
 		f.SetCellStyle(overviewsheet, "B1", "D1", styleH)
 		f.SetCellStyle(overviewsheet, "A2", "F"+srowx, styleV2)
 	} else {
@@ -543,18 +591,110 @@ func main() {
 	srow++ // Leave a gap before totals
 
 	// L to X
-	for _, c := range "LMNOPQRSTUVWX" {
-		ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
-		f.SetCellFormula(overviewsheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
-		f.SetCellStyle(overviewsheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
+	ncol, _ := excelize.ColumnNameToNumber("L")
+	xcol := ""
+	srowt := strconv.Itoa(srow)
+	if *safemode {
+		xcol, _ = excelize.ColumnNumberToName(ncol)
+		f.SetCellStyle(overviewsheet, xcol+srowt, xcol+srowt, styleT)
+		if cfg.Rally == "rblr" {
+			f.SetCellInt(overviewsheet, xcol+srowt, camping)
+		}
+		ncol++
+		for i := 0; i < len(rblr_routes_ridden); i++ {
+			xcol, _ = excelize.ColumnNumberToName(ncol)
+			f.SetCellStyle(overviewsheet, xcol+srowt, xcol+srowt, styleT)
+			if rblr_routes_ridden[i] > 0 {
+				f.SetCellInt(overviewsheet, xcol+srowt, rblr_routes_ridden[i])
+			}
+			ncol++
+		}
+		for i := 0; i < numtsizes; i++ {
+			xcol, _ = excelize.ColumnNumberToName(ncol)
+			f.SetCellStyle(overviewsheet, xcol+srowt, xcol+srowt, styleT)
+			if tottshirts[i] > 0 {
+				f.SetCellInt(overviewsheet, xcol+srowt, tottshirts[i])
+			}
+			ncol++
+		}
+		if cfg.Patchavail {
+			xcol, _ = excelize.ColumnNumberToName(ncol)
+			f.SetCellStyle(overviewsheet, xcol+srowt, xcol+srowt, styleT)
+			if totpatches > 0 {
+				f.SetCellInt(overviewsheet, xcol+srowt, totpatches)
+			}
+			ncol++
+		}
+	} else {
+		for _, c := range "LMNOPQRSTUVWX" {
+			ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
+			f.SetCellFormula(overviewsheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
+			f.SetCellStyle(overviewsheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
+		}
 	}
 
-	for _, c := range "DEFGHIJKL" {
-		ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
-		f.SetCellFormula(paysheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
-		f.SetCellStyle(paysheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
-	}
+	if *safemode {
+		// paysheet totals
+		ncol, _ = excelize.ColumnNameToNumber("D")
+		var moneytot int = 0
 
+		// Riders
+		xcol, _ = excelize.ColumnNumberToName(ncol)
+		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
+		moneytot = numRiders * cfg.Riderfee
+		f.SetCellInt(paysheet, xcol+srowt, moneytot)
+		ncol++
+
+		// Pillions
+		xcol, _ = excelize.ColumnNumberToName(ncol)
+		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
+		moneytot = numPillions * cfg.Pillionfee
+		f.SetCellInt(paysheet, xcol+srowt, moneytot)
+		ncol++
+
+		// T-shirts
+		xcol, _ = excelize.ColumnNumberToName(ncol)
+		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
+		moneytot = grandtottshirts * cfg.Tshirtcost
+		if numtsizes > 0 {
+			f.SetCellInt(paysheet, xcol+srowt, moneytot)
+		}
+		ncol++
+
+		// Patches
+		xcol, _ = excelize.ColumnNumberToName(ncol)
+		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
+		moneytot = totpatches * cfg.Patchcost
+		if cfg.Patchavail {
+			f.SetCellInt(paysheet, xcol+srowt, moneytot)
+		}
+		ncol++
+
+		ncol++ // Skip cheque @ Squires
+
+		// Sponsorship
+		xcol, _ = excelize.ColumnNumberToName(ncol)
+		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
+		moneytot = totSponsorship
+		if cfg.Sponsorship {
+			f.SetCellInt(paysheet, xcol+srowt, moneytot)
+		}
+		ncol++
+
+		// Total received
+		xcol, _ = excelize.ColumnNumberToName(ncol)
+		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
+		moneytot = totPayment
+		f.SetCellInt(paysheet, xcol+srowt, moneytot)
+		ncol++
+
+	} else {
+		for _, c := range "DEFGHIJKL" {
+			ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
+			f.SetCellFormula(paysheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
+			f.SetCellStyle(paysheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
+		}
+	}
 	f.SetActiveSheet(0)
 	f.SetCellValue(overviewsheet, "A1", "No.")
 	f.SetCellValue(noksheet, "A1", "No.")
