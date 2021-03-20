@@ -551,6 +551,7 @@ func main() {
 			c := "MNOPQR"
 			for i := 0; i < len(rblr_routes_ridden); i++ {
 				f.SetCellFormula(totsheet, "B"+strconv.Itoa(r), overviewsheet+"!"+string(c[i])+strconv.Itoa(srow+1))
+				r++
 			}
 		}
 		f.SetCellStyle(overviewsheet, "B1", "D1", styleH)
@@ -712,7 +713,7 @@ func main() {
 		// Total received
 		xcol, _ = excelize.ColumnNumberToName(ncol)
 		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
-		moneytot = totPayment
+		moneytot = totPayment + totCash
 		f.SetCellInt(paysheet, xcol+srowt, moneytot)
 		ncol++
 
@@ -883,7 +884,7 @@ func main() {
 
 		f.SetCellValue(totsheet, "E"+strconv.Itoa(srow+1), bikes[i].make)
 		f.SetCellInt(totsheet, "F"+strconv.Itoa(srow+1), bikes[i].num)
-		f.SetCellStyle(totsheet, "F"+strconv.Itoa(srow+1), "F"+strconv.Itoa(srow), styleV3)
+		f.SetCellStyle(totsheet, "F"+strconv.Itoa(srow+1), "F"+strconv.Itoa(srow), styleRJ)
 		f.SetColWidth(totsheet, "E", "E", 12)
 
 		ntot += bikes[i].num
