@@ -63,9 +63,9 @@ ifnull(FreeCamping,''),ifnull(WhichRoute,'A'),
 ifnull(Tshirt1,''),ifnull(Tshirt2,''),ifnull(Patches,'0'),ifnull(Cash,'0'),
 ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
-ifnull(EntryId,''),ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,''),
+FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,''),
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),
-ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,''),ifnull(RiderNumber,'')`
+ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,'')`
 
 const sqlx_rally = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -73,8 +73,8 @@ ifnull(BikeMakeModel,''),
 ifnull(Tshirt1,''),ifnull(Tshirt2,''),
 ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
-ifnull(EntryId,''),ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
-ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(RiderNumber,'')`
+FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
+ifnull(NoviceRider,''),ifnull(NovicePillion,'')`
 
 var sqlx string
 
@@ -116,18 +116,43 @@ func properName(x string) string {
 
 }
 
-func showRecordCount(db *sql.DB) {
+func FixRiderNumbers(db *sql.DB) {
 
-	rows, err := db.Query("SELECT count(*) FROM entrants;")
+	var old string
+	var new int
+	var mannum string
+
+	oldnew := make(map[string]int, 250) // More than enough
+
+	rows, err := db.Query("SELECT EntryId,ifnull(RiderNumber,'') FROM entrants;") // There is scope for renumber alphabetically if desired.
 	if err != nil {
 		log.Fatal(err)
 	}
-	var n int64
-	rows.Next()
-	err = rows.Scan(&n)
-	if err != nil {
-		log.Fatal(err)
+	for rows.Next() {
+
+		rows.Scan(&old, &mannum)
+		new = intval(old) + cfg.Add2entrantid
+		if intval(mannum) > 0 {
+			new = intval(mannum)
+		}
+		oldnew[old] = new
 	}
+
+	tx, _ := db.Begin()
+	for old, new := range oldnew {
+		sqlx := "UPDATE entrants SET FinalRiderNumber=" + strconv.Itoa(new) + " WHERE EntryId='" + old + "'"
+		//fmt.Println(sqlx)
+		_, err := db.Exec(sqlx)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Fatal()
+	}
+
+	n := len(oldnew)
 	fmt.Printf("%v entrants loaded\n", n)
 	rows.Close()
 }
@@ -221,7 +246,9 @@ func initSpreadsheet() *excelize.File {
 	// Set heading styles
 	f.SetCellStyle(overviewsheet, "A1", "A1", styleH2)
 	f.SetCellStyle(overviewsheet, "E1", "J1", styleH2)
-	f.SetCellStyle(overviewsheet, "K1", "X1", styleH)
+	if cfg.Rally == "rblr" {
+		f.SetCellStyle(overviewsheet, "K1", "X1", styleH)
+	}
 
 	f.SetCellStyle(regsheet, "A1", "H1", styleH2)
 	if cfg.Rally == "rblr" {
@@ -245,7 +272,7 @@ func main() {
 	if !*noCSV {
 		loadCSVFile(db)
 	}
-	showRecordCount(db)
+	FixRiderNumbers(db)
 
 	f := initSpreadsheet()
 
@@ -288,7 +315,7 @@ func main() {
 		var RiderIBA string
 		var PillionFirst, PillionLast, PillionIBA string
 		var Bike, Make, Model string
-		var Miles, EntryID string
+		var Miles string
 		var Camp, Route, T1, T2, Patches string
 		var Mobile, NokName, NokNumber, NokRelation string
 		var PayTot string
@@ -296,7 +323,6 @@ func main() {
 		var novicerider, novicepillion string
 		var miles2squires, freecamping string
 		var entrantid int
-		var manualridernumber string
 		var feesdue int = 0
 
 		for i := 0; i < num_tshirt_sizes; i++ {
@@ -307,12 +333,12 @@ func main() {
 		if cfg.Rally == "rblr" {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
-				&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
-				&miles2squires, &freecamping, &manualridernumber)
+				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
+				&miles2squires, &freecamping)
 		} else {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &T1, &T2,
-				&Mobile, &NokName, &NokNumber, &NokRelation, &EntryID, &PayTot, &Paid, &novicerider, &novicepillion, &manualridernumber)
+				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion)
 		}
 		if err2 != nil {
 			log.Fatal(err2)
@@ -323,10 +349,6 @@ func main() {
 		PillionFirst = properName(PillionFirst)
 		PillionLast = properName(PillionLast)
 
-		entrantid = intval(EntryID) + cfg.Add2entrantid
-		if intval(manualridernumber) > 0 {
-			entrantid = intval(manualridernumber)
-		}
 		//fmt.Printf("%v %v\n", RiderFirst, RiderLast)
 
 		for i := 0; i < num_tshirt_sizes; i++ {
@@ -575,10 +597,10 @@ func main() {
 				r++
 			}
 		}
-		f.SetCellStyle(overviewsheet, "A2", "A"+srowx, styleV2)
-	} else {
-		f.SetCellStyle(overviewsheet, "A2", "A"+srowx, styleV)
+
 	}
+	f.SetCellStyle(overviewsheet, "A2", "A"+srowx, styleV2)
+	f.SetCellStyle(overviewsheet, "E2", "F"+srowx, styleV2L)
 	f.SetCellStyle(chksheet, "A2", "A"+srowx, styleV2)
 	f.SetCellStyle(chksheet, "B2", "E"+srowx, styleV2L)
 	f.SetCellStyle(chksheet, "F2", "G"+srowx, styleV)
@@ -986,16 +1008,18 @@ func loadCSVFile(db *sql.DB) {
 func makeSQLTable(db *sql.DB) {
 
 	var x string = ""
-	if !strings.Contains(strings.ToLower(dbfieldsx), "ridernumber") {
+	re := regexp.MustCompile(`\bRiderNumber\b`)
+	if !re.Match([]byte(dbfieldsx)) {
 		x = ",RiderNumber"
 	}
+	x += ",FinalRiderNumber"
 	_, err := db.Exec("DROP TABLE IF EXISTS entrants")
 	if err != nil {
 		log.Fatal(err)
 	}
 	db.Exec("PRAGMA foreign_keys=OFF")
 	db.Exec("BEGIN TRANSACTION")
-	_, err = db.Exec("CREATE TABLE entrants (" + dbfieldsx + x + ")")
+	_, err = db.Exec("CREATE TABLE entrants (" + dbfieldsx + x + " INTEGER)")
 	if err != nil {
 		log.Fatal(err)
 	}
