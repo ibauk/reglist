@@ -825,6 +825,7 @@ func main() {
 
 	f.SetColWidth(chksheet, "B", "C", 12)
 	f.SetColWidth(chksheet, "D", "D", 30)
+	f.SetColWidth(chksheet, "F", "G", 10)
 	f.SetColWidth(chksheet, "H", "H", 40)
 
 	f.SetColWidth(overviewsheet, "G", "G", 8)
