@@ -243,13 +243,13 @@ func initSpreadsheet() *excelize.File {
 	renameSheet(f, &regsheet, "Registration")
 	renameSheet(f, &shopsheet, "Shop")
 
-	setPageTitle(f, "Overview")
-	setPageTitle(f, "NOK list")
-	setPageTitle(f, "Money")
-	setPageTitle(f, "Stats")
-	setPageTitle(f, "Carpark")
-	setPageTitle(f, "Registration")
-	setPageTitle(f, "Shop")
+	setPageTitle(f, overviewsheet)
+	setPageTitle(f, noksheet)
+	setPageTitle(f, paysheet)
+	setPageTitle(f, totsheet)
+	setPageTitle(f, chksheet)
+	setPageTitle(f, regsheet)
+	setPageTitle(f, shopsheet)
 
 	// Set heading styles
 	f.SetCellStyle(overviewsheet, "A1", "A1", styleH2)
@@ -287,6 +287,22 @@ func setPageTitle(f *excelize.File, sheet string) {
 	f.SetDefinedName(&dn)
 }
 
+func setPagePane(f *excelize.File, sheet string) {
+	f.SetPanes(sheet, `{
+		"freeze": true,
+		"split": false,
+		"x_split": 0,
+		"y_split": 1,
+		"top_left_cell": "A2",
+		"active_pane": "bottomLeft",
+		"panes": [
+		{
+			"sqref": "A2:X2",
+			"active_cell": "A2",
+			"pane": "bottomLeft"
+		}]
+	}`)
+}
 func main() {
 
 	if !*noCSV {
@@ -948,6 +964,13 @@ func main() {
 	if len(cfg.Tshirts) < 1 && !cfg.Patchavail {
 		f.DeleteSheet(shopsheet)
 	}
+
+	setPagePane(f, overviewsheet)
+	setPagePane(f, noksheet)
+	setPagePane(f, paysheet)
+	setPagePane(f, chksheet)
+	setPagePane(f, regsheet)
+	setPagePane(f, shopsheet)
 
 	markSpreadsheet(f, cfg)
 
