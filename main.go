@@ -963,6 +963,8 @@ func main() {
 
 	if len(cfg.Tshirts) < 1 && !cfg.Patchavail {
 		f.DeleteSheet(shopsheet)
+	} else {
+		setPagePane(f, shopsheet)
 	}
 
 	setPagePane(f, overviewsheet)
@@ -970,7 +972,6 @@ func main() {
 	setPagePane(f, paysheet)
 	setPagePane(f, chksheet)
 	setPagePane(f, regsheet)
-	setPagePane(f, shopsheet)
 
 	markSpreadsheet(f, cfg)
 
