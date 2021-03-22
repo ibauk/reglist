@@ -243,6 +243,14 @@ func initSpreadsheet() *excelize.File {
 	renameSheet(f, &regsheet, "Registration")
 	renameSheet(f, &shopsheet, "Shop")
 
+	setPageTitle(f, "Overview")
+	setPageTitle(f, "NOK list")
+	setPageTitle(f, "Money")
+	setPageTitle(f, "Stats")
+	setPageTitle(f, "Carpark")
+	setPageTitle(f, "Registration")
+	setPageTitle(f, "Shop")
+
 	// Set heading styles
 	f.SetCellStyle(overviewsheet, "A1", "A1", styleH2)
 	f.SetCellStyle(overviewsheet, "E1", "J1", styleH2)
@@ -265,6 +273,18 @@ func initSpreadsheet() *excelize.File {
 
 	return f
 
+}
+
+// setPageTitle sets each sheet, except Stats, to repeat its
+// top line on each printed page
+func setPageTitle(f *excelize.File, sheet string) {
+
+	var dn excelize.DefinedName
+
+	dn.Name = "_xlnm.Print_Titles"
+	dn.RefersTo = sheet + "!$1:$1"
+	dn.Scope = sheet
+	f.SetDefinedName(&dn)
 }
 
 func main() {
