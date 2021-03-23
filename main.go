@@ -41,7 +41,9 @@ const apptitle = "IBAUK Reglist v0.0.7\nCopyright (c) 2021 Bob Stammers\n\n"
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
 
-const max_tshirt_sizes = 10
+const max_tshirt_sizes int = 10
+
+var tshirt_sizes [max_tshirt_sizes]string
 
 // dbFields must be kept in sync with the downloaded CSV from Wufoo
 // Fieldnames don't matter but the order and number both do
@@ -216,6 +218,12 @@ func init() {
 	}
 
 	includeShopTab = len(cfg.Tshirts) > 0 || cfg.Patchavail
+	if includeShopTab {
+		//fmt.Printf("Including shop tab (%v)\n", len(cfg.Tshirts))
+		for i := 0; i < len(cfg.Tshirts); i++ { // Let's just have an uncontrolled panic if someone specifies too many sizes
+			tshirt_sizes[i] = " T-shirt " + cfg.Tshirts[i] // The leading space just makes sense
+		}
+	}
 }
 
 func initSpreadsheet() *excelize.File {
@@ -253,7 +261,16 @@ func initSpreadsheet() *excelize.File {
 	f.SetCellStyle(overviewsheet, "A1", "A1", styleH2)
 	f.SetCellStyle(overviewsheet, "E1", "J1", styleH2)
 	if cfg.Rally == "rblr" {
-		f.SetCellStyle(overviewsheet, "K1", "X1", styleH)
+		f.SetCellStyle(overviewsheet, "K1", "R1", styleH)
+	} else {
+		f.SetColWidth(overviewsheet, "K", "R", 1)
+		f.SetColVisible(overviewsheet, "K:R", false)
+	}
+	if len(cfg.Tshirts) > 0 {
+		f.SetCellStyle(overviewsheet, "S1", "W1", styleH)
+	}
+	if cfg.Patchavail {
+		f.SetCellStyle(overviewsheet, "X1", "X1", styleH)
 	}
 
 	f.SetCellStyle(regsheet, "A1", "H1", styleH2)
@@ -385,7 +402,7 @@ func main() {
 		PillionFirst = properName(PillionFirst)
 		PillionLast = properName(PillionLast)
 
-		//fmt.Printf("%v %v\n", RiderFirst, RiderLast)
+		//fmt.Printf("%v (%v) %v (%v)\n", RiderFirst, T1, RiderLast, T2)
 
 		for i := 0; i < num_tshirt_sizes; i++ {
 			if cfg.Tshirts[i] == T1 {
@@ -667,9 +684,15 @@ func main() {
 	f.SetCellStyle(noksheet, "A2", "A"+srowx, styleV3)
 
 	if cfg.Rally == "rblr" {
-		f.SetCellStyle(overviewsheet, "K2", "X"+srowx, styleV)
+		f.SetCellStyle(overviewsheet, "K2", "R"+srowx, styleV)
 		f.SetCellStyle(regsheet, "I2", "I"+srowx, styleV2)
 		f.SetCellStyle(regsheet, "J2", "J"+srowx, styleV)
+	}
+	if len(cfg.Tshirts) > 0 {
+		f.SetCellStyle(overviewsheet, "S2", "W"+srowx, styleV)
+	}
+	if cfg.Patchavail {
+		f.SetCellStyle(overviewsheet, "X2", "X"+srowx, styleV)
 	}
 
 	f.SetCellStyle(overviewsheet, "G2", "J"+srowx, styleV2)
@@ -930,7 +953,7 @@ func main() {
 		f.SetColWidth(overviewsheet, "K", "K", 5)
 
 		f.SetCellValue(overviewsheet, "L1", " Camping")
-		f.SetColWidth(overviewsheet, "L", "X", 3)
+		f.SetColWidth(overviewsheet, "L", "R", 3)
 
 		f.SetCellValue(overviewsheet, "M1", rblr_routes[0])
 		f.SetCellValue(overviewsheet, "N1", rblr_routes[1])
@@ -939,23 +962,28 @@ func main() {
 		f.SetCellValue(overviewsheet, "Q1", rblr_routes[4])
 		f.SetCellValue(overviewsheet, "R1", rblr_routes[5])
 
+	}
+
+	if len(cfg.Tshirts) > 0 {
+		f.SetColWidth(overviewsheet, "S", "W", 3)
 		f.SetCellValue(overviewsheet, "S1", " T-shirt S")
 		f.SetCellValue(overviewsheet, "T1", " T-shirt M")
 		f.SetCellValue(overviewsheet, "U1", " T-shirt L")
 		f.SetCellValue(overviewsheet, "V1", " T-shirt XL")
 		f.SetCellValue(overviewsheet, "W1", " T-shirt XXL")
-
+	}
+	if cfg.Patchavail {
+		f.SetColWidth(overviewsheet, "X", "X", 3)
 		f.SetCellValue(overviewsheet, "X1", " Patches")
+	}
+	if includeShopTab {
+		f.SetCellValue(shopsheet, "D1", " T-shirt S")
+		f.SetCellValue(shopsheet, "E1", " T-shirt M")
+		f.SetCellValue(shopsheet, "F1", " T-shirt L")
+		f.SetCellValue(shopsheet, "G1", " T-shirt XL")
+		f.SetCellValue(shopsheet, "H1", " T-shirt XXL")
 
-		if includeShopTab {
-			f.SetCellValue(shopsheet, "D1", " T-shirt S")
-			f.SetCellValue(shopsheet, "E1", " T-shirt M")
-			f.SetCellValue(shopsheet, "F1", " T-shirt L")
-			f.SetCellValue(shopsheet, "G1", " T-shirt XL")
-			f.SetCellValue(shopsheet, "H1", " T-shirt XXL")
-
-			f.SetCellValue(shopsheet, "I1", " Patches")
-		}
+		f.SetCellValue(shopsheet, "I1", " Patches")
 	}
 
 	f.SetRowHeight(overviewsheet, 1, 70)
