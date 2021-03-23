@@ -83,6 +83,7 @@ var styleH, styleH2, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleRJ
 var cfg *Config
 
 var db *sql.DB
+var includeShopTab bool
 
 func fieldlistFromConfig(cols []string) string {
 
@@ -214,6 +215,7 @@ func init() {
 		log.Fatal(err)
 	}
 
+	includeShopTab = len(cfg.Tshirts) > 0 || cfg.Patchavail
 }
 
 func initSpreadsheet() *excelize.File {
@@ -226,8 +228,10 @@ func initSpreadsheet() *excelize.File {
 	formatSheet(f, regsheet, false)
 	f.NewSheet(noksheet)
 	formatSheet(f, noksheet, false)
-	f.NewSheet(shopsheet)
-	formatSheet(f, shopsheet, false)
+	if includeShopTab {
+		f.NewSheet(shopsheet)
+		formatSheet(f, shopsheet, false)
+	}
 	f.NewSheet(paysheet)
 	formatSheet(f, paysheet, false)
 	f.NewSheet(totsheet)
@@ -241,15 +245,9 @@ func initSpreadsheet() *excelize.File {
 	renameSheet(f, &totsheet, "Stats")
 	renameSheet(f, &chksheet, "Carpark")
 	renameSheet(f, &regsheet, "Registration")
-	renameSheet(f, &shopsheet, "Shop")
-
-	setPageTitle(f, overviewsheet)
-	setPageTitle(f, noksheet)
-	setPageTitle(f, paysheet)
-	setPageTitle(f, totsheet)
-	setPageTitle(f, chksheet)
-	setPageTitle(f, regsheet)
-	setPageTitle(f, shopsheet)
+	if includeShopTab {
+		renameSheet(f, &shopsheet, "Shop")
+	}
 
 	// Set heading styles
 	f.SetCellStyle(overviewsheet, "A1", "A1", styleH2)
@@ -269,7 +267,9 @@ func initSpreadsheet() *excelize.File {
 	f.SetCellStyle(chksheet, "A1", "A1", styleH2)
 	f.SetCellStyle(chksheet, "A1", "H1", styleH2)
 
-	f.SetCellStyle(shopsheet, "A1", "I1", styleH2)
+	if includeShopTab {
+		f.SetCellStyle(shopsheet, "A1", "I1", styleH2)
+	}
 
 	return f
 
@@ -448,7 +448,9 @@ func main() {
 		f.SetCellInt(regsheet, "A"+srowx, entrantid)
 		f.SetCellInt(noksheet, "A"+srowx, entrantid)
 		f.SetCellInt(paysheet, "A"+srowx, entrantid)
-		f.SetCellInt(shopsheet, "A"+srowx, entrantid)
+		if includeShopTab {
+			f.SetCellInt(shopsheet, "A"+srowx, entrantid)
+		}
 		f.SetCellInt(chksheet, "A"+srowx, entrantid)
 
 		// Rider names
@@ -460,8 +462,10 @@ func main() {
 		f.SetCellValue(noksheet, "C"+srowx, strings.Title(RiderLast))
 		f.SetCellValue(paysheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(paysheet, "C"+srowx, strings.Title(RiderLast))
-		f.SetCellValue(shopsheet, "B"+srowx, strings.Title(RiderFirst))
-		f.SetCellValue(shopsheet, "C"+srowx, strings.Title(RiderLast))
+		if includeShopTab {
+			f.SetCellValue(shopsheet, "B"+srowx, strings.Title(RiderFirst))
+			f.SetCellValue(shopsheet, "C"+srowx, strings.Title(RiderLast))
+		}
 		f.SetCellValue(chksheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(chksheet, "C"+srowx, strings.Title(RiderLast))
 		f.SetCellValue(chksheet, "D"+srowx, strings.Title(Bike))
@@ -565,10 +569,12 @@ func main() {
 			rblr_routes_ridden[col]++
 		}
 
-		cols = "DEFGH"
-		for col = 0; col < len(tshirts); col++ {
-			if tshirts[col] > 0 {
-				f.SetCellInt(shopsheet, string(cols[col])+srowx, tshirts[col])
+		if includeShopTab {
+			cols = "DEFGH"
+			for col = 0; col < len(tshirts); col++ {
+				if tshirts[col] > 0 {
+					f.SetCellInt(shopsheet, string(cols[col])+srowx, tshirts[col])
+				}
 			}
 		}
 
@@ -581,6 +587,8 @@ func main() {
 
 		srow++
 	}
+
+	fmt.Printf("%v entrants written\n", numRiders)
 
 	// Write out totals
 	f.SetColWidth(totsheet, "A", "A", 30)
@@ -642,9 +650,11 @@ func main() {
 	f.SetCellStyle(chksheet, "F2", "G"+srowx, styleV)
 	f.SetCellStyle(chksheet, "H2", "H"+srowx, styleV2)
 
-	f.SetCellStyle(shopsheet, "A2", "A"+srowx, styleV2)
-	f.SetCellStyle(shopsheet, "B2", "C"+srowx, styleV2L)
-	f.SetCellStyle(shopsheet, "D2", "I"+srowx, styleV2)
+	if includeShopTab {
+		f.SetCellStyle(shopsheet, "A2", "A"+srowx, styleV2)
+		f.SetCellStyle(shopsheet, "B2", "C"+srowx, styleV2L)
+		f.SetCellStyle(shopsheet, "D2", "I"+srowx, styleV2)
+	}
 
 	f.SetCellStyle(regsheet, "A2", "A"+srowx, styleV2)
 	f.SetCellStyle(regsheet, "B2", "C"+srowx, styleV2L)
@@ -681,13 +691,15 @@ func main() {
 			f.SetCellInt(overviewsheet, xcol+srowt, numCamping)
 		}
 		ncol++
-		for i := 0; i < len(rblr_routes_ridden); i++ {
-			xcol, _ = excelize.ColumnNumberToName(ncol)
-			f.SetCellStyle(overviewsheet, xcol+srowt, xcol+srowt, styleT)
-			if rblr_routes_ridden[i] > 0 {
-				f.SetCellInt(overviewsheet, xcol+srowt, rblr_routes_ridden[i])
+		if cfg.Rally == "rblr" {
+			for i := 0; i < len(rblr_routes_ridden); i++ {
+				xcol, _ = excelize.ColumnNumberToName(ncol)
+				f.SetCellStyle(overviewsheet, xcol+srowt, xcol+srowt, styleT)
+				if rblr_routes_ridden[i] > 0 {
+					f.SetCellInt(overviewsheet, xcol+srowt, rblr_routes_ridden[i])
+				}
+				ncol++
 			}
-			ncol++
 		}
 		for i := 0; i < num_tshirt_sizes; i++ {
 			xcol, _ = excelize.ColumnNumberToName(ncol)
@@ -714,30 +726,32 @@ func main() {
 	}
 
 	// Shop totals
-	ncol, _ = excelize.ColumnNameToNumber("D")
+	if includeShopTab {
+		ncol, _ = excelize.ColumnNameToNumber("D")
 
-	if *safemode {
-		for i := 0; i < num_tshirt_sizes; i++ {
-			xcol, _ = excelize.ColumnNumberToName(ncol)
-			f.SetCellStyle(shopsheet, xcol+srowt, xcol+srowt, styleT)
-			if totTShirts[i] > 0 {
-				f.SetCellInt(shopsheet, xcol+srowt, totTShirts[i])
+		if *safemode {
+			for i := 0; i < num_tshirt_sizes; i++ {
+				xcol, _ = excelize.ColumnNumberToName(ncol)
+				f.SetCellStyle(shopsheet, xcol+srowt, xcol+srowt, styleT)
+				if totTShirts[i] > 0 {
+					f.SetCellInt(shopsheet, xcol+srowt, totTShirts[i])
+				}
+				ncol++
 			}
-			ncol++
-		}
-		if cfg.Patchavail {
-			xcol, _ = excelize.ColumnNumberToName(ncol)
-			f.SetCellStyle(shopsheet, xcol+srowt, xcol+srowt, styleT)
-			if totPatches > 0 {
-				f.SetCellInt(shopsheet, xcol+srowt, totPatches)
+			if cfg.Patchavail {
+				xcol, _ = excelize.ColumnNumberToName(ncol)
+				f.SetCellStyle(shopsheet, xcol+srowt, xcol+srowt, styleT)
+				if totPatches > 0 {
+					f.SetCellInt(shopsheet, xcol+srowt, totPatches)
+				}
+				ncol++
 			}
-			ncol++
-		}
-	} else {
-		for _, c := range "DEFGHI" {
-			ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
-			f.SetCellFormula(shopsheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
-			f.SetCellStyle(shopsheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
+		} else {
+			for _, c := range "DEFGHI" {
+				ff := "sum(" + string(c) + "2:" + string(c) + srowx + ")"
+				f.SetCellFormula(shopsheet, string(c)+strconv.Itoa(srow), "if("+ff+"=0,\"\","+ff+")")
+				f.SetCellStyle(shopsheet, string(c)+strconv.Itoa(srow), string(c)+strconv.Itoa(srow), styleT)
+			}
 		}
 	}
 
@@ -762,18 +776,18 @@ func main() {
 
 		// T-shirts
 		xcol, _ = excelize.ColumnNumberToName(ncol)
-		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 		moneytot = grandTotalTShirts * cfg.Tshirtcost
 		if num_tshirt_sizes > 0 {
+			f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 			f.SetCellInt(paysheet, xcol+srowt, moneytot)
 		}
 		ncol++
 
 		// Patches
 		xcol, _ = excelize.ColumnNumberToName(ncol)
-		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 		moneytot = totPatches * cfg.Patchcost
 		if cfg.Patchavail {
+			f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 			f.SetCellInt(paysheet, xcol+srowt, moneytot)
 		}
 		ncol++
@@ -782,9 +796,9 @@ func main() {
 
 		// Sponsorship
 		xcol, _ = excelize.ColumnNumberToName(ncol)
-		f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 		moneytot = totSponsorship
 		if cfg.Sponsorship {
+			f.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 			f.SetCellInt(paysheet, xcol+srowt, moneytot)
 		}
 		ncol++
@@ -814,11 +828,13 @@ func main() {
 	f.SetColWidth(paysheet, "A", "A", 5)
 	f.SetColWidth(regsheet, "A", "A", 5)
 
-	f.SetCellValue(shopsheet, "A1", "No.")
-	f.SetColWidth(shopsheet, "A", "A", 5)
-	f.SetCellValue(shopsheet, "B1", "Rider(first)")
-	f.SetCellValue(shopsheet, "C1", "Rider(last)")
-	f.SetColWidth(shopsheet, "B", "I", 12)
+	if includeShopTab {
+		f.SetCellValue(shopsheet, "A1", "No.")
+		f.SetColWidth(shopsheet, "A", "A", 5)
+		f.SetCellValue(shopsheet, "B1", "Rider(first)")
+		f.SetCellValue(shopsheet, "C1", "Rider(last)")
+		f.SetColWidth(shopsheet, "B", "I", 12)
+	}
 
 	f.SetColWidth(overviewsheet, "B", "D", 1)
 	f.SetColWidth(regsheet, "B", "C", 12)
@@ -931,13 +947,15 @@ func main() {
 
 		f.SetCellValue(overviewsheet, "X1", " Patches")
 
-		f.SetCellValue(shopsheet, "D1", " T-shirt S")
-		f.SetCellValue(shopsheet, "E1", " T-shirt M")
-		f.SetCellValue(shopsheet, "F1", " T-shirt L")
-		f.SetCellValue(shopsheet, "G1", " T-shirt XL")
-		f.SetCellValue(shopsheet, "H1", " T-shirt XXL")
+		if includeShopTab {
+			f.SetCellValue(shopsheet, "D1", " T-shirt S")
+			f.SetCellValue(shopsheet, "E1", " T-shirt M")
+			f.SetCellValue(shopsheet, "F1", " T-shirt L")
+			f.SetCellValue(shopsheet, "G1", " T-shirt XL")
+			f.SetCellValue(shopsheet, "H1", " T-shirt XXL")
 
-		f.SetCellValue(shopsheet, "I1", " Patches")
+			f.SetCellValue(shopsheet, "I1", " Patches")
+		}
 	}
 
 	f.SetRowHeight(overviewsheet, 1, 70)
@@ -961,17 +979,23 @@ func main() {
 
 	srow++
 
-	if len(cfg.Tshirts) < 1 && !cfg.Patchavail {
-		f.DeleteSheet(shopsheet)
-	} else {
-		setPagePane(f, shopsheet)
-	}
+	setPageTitle(f, overviewsheet)
+	setPageTitle(f, noksheet)
+	setPageTitle(f, paysheet)
+	setPageTitle(f, totsheet)
+	setPageTitle(f, chksheet)
+	setPageTitle(f, regsheet)
 
 	setPagePane(f, overviewsheet)
 	setPagePane(f, noksheet)
 	setPagePane(f, paysheet)
 	setPagePane(f, chksheet)
 	setPagePane(f, regsheet)
+
+	if includeShopTab {
+		setPageTitle(f, shopsheet)
+		setPagePane(f, shopsheet)
+	}
 
 	markSpreadsheet(f, cfg)
 
