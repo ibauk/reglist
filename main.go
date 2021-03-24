@@ -69,7 +69,7 @@ ifnull(Tshirt1,''),ifnull(Tshirt2,''),ifnull(Patches,'0'),ifnull(Cash,'0'),
 ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
 FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,''),
-ifnull(NoviceRider,''),ifnull(NovicePillion,''),
+ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),
 ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,'')`
 
 const sqlx_rally = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
@@ -79,11 +79,11 @@ ifnull(Tshirt1,''),ifnull(Tshirt2,''),
 ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
 FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
-ifnull(NoviceRider,''),ifnull(NovicePillion,'')`
+ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,'')`
 
 var sqlx string
 
-var styleH, styleH2, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleRJ int
+var styleH, styleH2, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleRJ, styleRJSmall int
 
 var cfg *Config
 
@@ -384,6 +384,7 @@ func main() {
 		var miles2squires, freecamping string
 		var entrantid int
 		var feesdue int = 0
+		var odocounts string
 
 		for i := 0; i < num_tshirt_sizes; i++ {
 			tshirts[i] = 0
@@ -394,11 +395,11 @@ func main() {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
-				&miles2squires, &freecamping)
+				&odocounts, &miles2squires, &freecamping)
 		} else {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &T1, &T2,
-				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion)
+				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion, &odocounts)
 		}
 		if err2 != nil {
 			log.Fatal(err2)
@@ -493,6 +494,9 @@ func main() {
 		f.SetCellValue(chksheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(chksheet, "C"+srowx, strings.Title(RiderLast))
 		f.SetCellValue(chksheet, "D"+srowx, strings.Title(Bike))
+		if odocounts[0] == 'K' {
+			f.SetCellValue(chksheet, "F"+srowx, "kms")
+		}
 
 		// Fees on Money tab
 		f.SetCellInt(paysheet, "D"+srowx, cfg.Riderfee) // Basic entry fee
@@ -679,10 +683,10 @@ func main() {
 	f.SetCellStyle(overviewsheet, "A2", "A"+srowx, styleV2)
 	f.SetCellStyle(overviewsheet, "B2", "J"+srowx, styleV2L)
 	f.SetCellStyle(overviewsheet, "E2", "E"+srowx, styleV2)
-	f.SetCellStyle(overviewsheet, "G2", "G"+srowx, styleV2)
+	f.SetCellStyle(overviewsheet, "H2", "H"+srowx, styleV2)
 	f.SetCellStyle(chksheet, "A2", "A"+srowx, styleV2)
 	f.SetCellStyle(chksheet, "B2", "E"+srowx, styleV2L)
-	f.SetCellStyle(chksheet, "F2", "G"+srowx, styleV)
+	f.SetCellStyle(chksheet, "F2", "G"+srowx, styleRJSmall)
 	f.SetCellStyle(chksheet, "H2", "H"+srowx, styleV2)
 
 	if includeShopTab {
@@ -1134,13 +1138,17 @@ func makeSQLTable(db *sql.DB) {
 		x = ",RiderNumber"
 	}
 	x += ",FinalRiderNumber"
+	db.Exec("PRAGMA foreign_keys=OFF")
+	db.Exec("BEGIN TRANSACTION")
 	_, err := db.Exec("DROP TABLE IF EXISTS entrants")
 	if err != nil {
 		log.Fatal(err)
 	}
-	db.Exec("PRAGMA foreign_keys=OFF")
-	db.Exec("BEGIN TRANSACTION")
 	_, err = db.Exec("CREATE TABLE entrants (" + dbfieldsx + x + " INTEGER)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.Exec("DROP TABLE IF EXISTS rally")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -1378,6 +1386,32 @@ func initStyles(f *excelize.File) {
 					"wrap_text": true
 				}
 	}`)
+
+	styleRJSmall, _ = f.NewStyle(`{ 
+		"alignment":
+		{
+			"horizontal": "right",
+			"ident": 1,
+			"justify_last_line": true,
+			"reading_order": 0,
+			"relative_indent": 1,
+			"shrink_to_fit": true,
+			"text_rotation": 0,
+			"vertical": "",
+			"wrap_text": true
+		},
+		"border": [
+			{
+				"type": "bottom",
+				"color": "000000",
+				"style": 1
+			}],
+
+		"font":
+		{
+			"size": 8
+		}
+}`)
 
 	f.SetDefaultFont("Arial")
 
