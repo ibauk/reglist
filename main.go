@@ -50,13 +50,13 @@ var tshirt_sizes [max_tshirt_sizes]string
 
 var dbfieldsx string
 
-var overviewsheet string = "Sheet1"
-var noksheet string = "Sheet2"
-var paysheet string = "Sheet4"
-var totsheet string = "Sheet5"
-var chksheet string = "Sheet6"
-var regsheet string = "Sheet7"
-var shopsheet string = "Sheet8"
+var overviewsheet string = "Sheet1" // Renamed on init
+var noksheet string = "NOK list"
+var paysheet string = "Money"
+var totsheet string = "Stats"
+var chksheet string = "Carpark"
+var regsheet string = "Registration"
+var shopsheet string = "Shop"
 
 const sqlx_rblr = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -248,6 +248,7 @@ func initSpreadsheet() *excelize.File {
 	formatSheet(f, chksheet, false)
 
 	renameSheet(f, &overviewsheet, "Overview")
+	/***
 	renameSheet(f, &noksheet, "NOK list")
 	renameSheet(f, &paysheet, "Money")
 	renameSheet(f, &totsheet, "Stats")
@@ -256,12 +257,16 @@ func initSpreadsheet() *excelize.File {
 	if includeShopTab {
 		renameSheet(f, &shopsheet, "Shop")
 	}
+	***/
 
 	// Set heading styles
-	f.SetCellStyle(overviewsheet, "A1", "A1", styleH2)
-	f.SetCellStyle(overviewsheet, "E1", "J1", styleH2)
+	f.SetCellStyle(overviewsheet, "A1", "J1", styleH2)
 	if cfg.Rally == "rblr" {
 		f.SetCellStyle(overviewsheet, "K1", "R1", styleH)
+		f.SetCellStyle(overviewsheet, "E1", "E1", styleH)
+		f.SetCellStyle(overviewsheet, "H1", "H1", styleH)
+		f.SetColVisible(overviewsheet, "E", false)
+		f.SetColVisible(overviewsheet, "G:H", false)
 	} else {
 		f.SetColWidth(overviewsheet, "K", "R", 1)
 		f.SetColVisible(overviewsheet, "K:R", false)
@@ -471,8 +476,8 @@ func main() {
 		f.SetCellInt(chksheet, "A"+srowx, entrantid)
 
 		// Rider names
-		f.SetCellValue(overviewsheet, "E"+srowx, strings.Title(RiderFirst))
-		f.SetCellValue(overviewsheet, "F"+srowx, strings.Title(RiderLast))
+		f.SetCellValue(overviewsheet, "B"+srowx, strings.Title(RiderFirst))
+		f.SetCellValue(overviewsheet, "C"+srowx, strings.Title(RiderLast))
 		f.SetCellValue(regsheet, "B"+srowx, strings.Title(RiderFirst))
 		f.SetCellValue(regsheet, "C"+srowx, strings.Title(RiderLast))
 		f.SetCellValue(noksheet, "B"+srowx, strings.Title(RiderFirst))
@@ -563,9 +568,12 @@ func main() {
 		f.SetCellValue(regsheet, "G"+srowx, proper(Make)+" "+proper(Model))
 
 		// Overview
-		f.SetCellValue(overviewsheet, "G"+srowx, fmtIBA(RiderIBA))
+		f.SetCellValue(overviewsheet, "D"+srowx, fmtIBA(RiderIBA))
+		f.SetCellValue(overviewsheet, "E"+srowx, fmtNovice(novicerider))
 
-		f.SetCellValue(overviewsheet, "H"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
+		f.SetCellValue(overviewsheet, "F"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
+		f.SetCellValue(overviewsheet, "G"+srowx, fmtIBA(PillionIBA))
+		f.SetCellValue(overviewsheet, "H"+srowx, fmtNovice(novicepillion))
 		f.SetCellValue(overviewsheet, "I"+srowx, proper(Make))
 		f.SetCellValue(overviewsheet, "J"+srowx, proper(Model))
 
@@ -661,7 +669,9 @@ func main() {
 
 	}
 	f.SetCellStyle(overviewsheet, "A2", "A"+srowx, styleV2)
-	f.SetCellStyle(overviewsheet, "E2", "F"+srowx, styleV2L)
+	f.SetCellStyle(overviewsheet, "B2", "J"+srowx, styleV2L)
+	f.SetCellStyle(overviewsheet, "E2", "E"+srowx, styleV2)
+	f.SetCellStyle(overviewsheet, "G2", "G"+srowx, styleV2)
 	f.SetCellStyle(chksheet, "A2", "A"+srowx, styleV2)
 	f.SetCellStyle(chksheet, "B2", "E"+srowx, styleV2L)
 	f.SetCellStyle(chksheet, "F2", "G"+srowx, styleV)
@@ -695,7 +705,7 @@ func main() {
 		f.SetCellStyle(overviewsheet, "X2", "X"+srowx, styleV)
 	}
 
-	f.SetCellStyle(overviewsheet, "G2", "J"+srowx, styleV2)
+	//f.SetCellStyle(overviewsheet, "G2", "J"+srowx, styleV2)
 
 	f.SetCellStyle(paysheet, "A2", "A"+srowx, styleV3)
 	f.SetCellStyle(paysheet, "D2", "J"+srowx, styleV)
@@ -915,17 +925,16 @@ func main() {
 	f.SetColWidth(paysheet, "J", "J", 15)
 	f.SetColWidth(paysheet, "K", "K", 15)
 
-	f.SetCellValue(overviewsheet, "E1", "Rider(first)")
-	f.SetCellValue(overviewsheet, "F1", "Rider(last)")
-	f.SetColWidth(overviewsheet, "E", "E", 12)
-	f.SetColWidth(overviewsheet, "F", "F", 12)
+	f.SetCellValue(overviewsheet, "B1", "Rider(first)")
+	f.SetCellValue(overviewsheet, "C1", "Rider(last)")
+	f.SetColWidth(overviewsheet, "B", "C", 12)
 
 	f.SetColWidth(chksheet, "B", "C", 12)
 	f.SetColWidth(chksheet, "D", "D", 30)
 	f.SetColWidth(chksheet, "F", "G", 10)
 	f.SetColWidth(chksheet, "H", "H", 40)
 
-	f.SetColWidth(overviewsheet, "G", "G", 8)
+	f.SetColWidth(overviewsheet, "D", "D", 8) // Rider IBA
 
 	f.SetCellValue(noksheet, "B1", "Rider(first)")
 	f.SetCellValue(noksheet, "C1", "Rider(last)")
@@ -937,11 +946,14 @@ func main() {
 	f.SetCellValue(noksheet, "G1", "Contact number")
 	f.SetColWidth(noksheet, "D", "G", 20)
 
+	f.SetCellValue(overviewsheet, "D1", "IBA #")
+	f.SetCellValue(overviewsheet, "E1", strings.Title(cfg.Novice))
+	f.SetCellValue(overviewsheet, "F1", "Pillion")
+	f.SetColWidth(overviewsheet, "F", "F", 19)
 	f.SetCellValue(overviewsheet, "G1", "IBA #")
-	f.SetCellValue(overviewsheet, "H1", "Pillion")
-	f.SetColWidth(overviewsheet, "H", "H", 19)
+	f.SetCellValue(overviewsheet, "H1", strings.Title(cfg.Novice))
 
-	f.SetColVisible(overviewsheet, "B:D", false)
+	//f.SetColVisible(overviewsheet, "B:D", false)
 
 	f.SetCellValue(overviewsheet, "I1", "Make")
 	f.SetColWidth(overviewsheet, "I", "I", 10)
@@ -1365,4 +1377,12 @@ func fmtIBA(x string) string {
 	}
 	return strings.ReplaceAll(x, ".0", "")
 
+}
+
+func fmtNovice(x string) string {
+
+	if strings.Contains(x, cfg.Novice) {
+		return "Yes"
+	}
+	return ""
 }
