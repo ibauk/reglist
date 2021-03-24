@@ -45,6 +45,8 @@ const max_tshirt_sizes int = 10
 
 var tshirt_sizes [max_tshirt_sizes]string
 
+var overview_patch_column, shop_patch_column string
+
 // dbFields must be kept in sync with the downloaded CSV from Wufoo
 // Fieldnames don't matter but the order and number both do
 
@@ -224,6 +226,13 @@ func init() {
 			tshirt_sizes[i] = " T-shirt " + cfg.Tshirts[i] // The leading space just makes sense
 		}
 	}
+
+	// Fix columns for patches
+	numsizes := len(cfg.Tshirts)
+	n, _ := excelize.ColumnNameToNumber("S")
+	overview_patch_column, _ = excelize.ColumnNumberToName(n + numsizes)
+	n, _ = excelize.ColumnNameToNumber("D")
+	shop_patch_column, _ = excelize.ColumnNumberToName(n + numsizes)
 }
 
 func initSpreadsheet() *excelize.File {
@@ -248,19 +257,9 @@ func initSpreadsheet() *excelize.File {
 	formatSheet(f, chksheet, false)
 
 	renameSheet(f, &overviewsheet, "Overview")
-	/***
-	renameSheet(f, &noksheet, "NOK list")
-	renameSheet(f, &paysheet, "Money")
-	renameSheet(f, &totsheet, "Stats")
-	renameSheet(f, &chksheet, "Carpark")
-	renameSheet(f, &regsheet, "Registration")
-	if includeShopTab {
-		renameSheet(f, &shopsheet, "Shop")
-	}
-	***/
 
 	// Set heading styles
-	f.SetCellStyle(overviewsheet, "A1", "J1", styleH2)
+	f.SetCellStyle(overviewsheet, "A1", overview_patch_column+"1", styleH2)
 	if cfg.Rally == "rblr" {
 		f.SetCellStyle(overviewsheet, "K1", "R1", styleH)
 		f.SetCellStyle(overviewsheet, "E1", "E1", styleH)
@@ -272,10 +271,12 @@ func initSpreadsheet() *excelize.File {
 		f.SetColVisible(overviewsheet, "K:R", false)
 	}
 	if len(cfg.Tshirts) > 0 {
-		f.SetCellStyle(overviewsheet, "S1", "W1", styleH)
+		n, _ := excelize.ColumnNameToNumber("S")
+		x, _ := excelize.ColumnNumberToName(n + len(cfg.Tshirts) - 1)
+		f.SetCellStyle(overviewsheet, "S1", x+"1", styleH)
 	}
 	if cfg.Patchavail {
-		f.SetCellStyle(overviewsheet, "X1", "X1", styleH)
+		f.SetCellStyle(overviewsheet, overview_patch_column+"1", overview_patch_column+"1", styleH)
 	}
 
 	f.SetCellStyle(regsheet, "A1", "H1", styleH2)
@@ -290,7 +291,7 @@ func initSpreadsheet() *excelize.File {
 	f.SetCellStyle(chksheet, "A1", "H1", styleH2)
 
 	if includeShopTab {
-		f.SetCellStyle(shopsheet, "A1", "I1", styleH2)
+		f.SetCellStyle(shopsheet, "A1", shop_patch_column+"1", styleH2)
 	}
 
 	return f
@@ -515,7 +516,7 @@ func main() {
 		if cfg.Patchavail && npatches > 0 {
 			f.SetCellInt(overviewsheet, "X"+srowx, npatches) // Overview tab
 			f.SetCellInt(paysheet, "G"+srowx, npatches*cfg.Patchcost)
-			f.SetCellInt(shopsheet, "I"+srowx, npatches) // Shop tab
+			f.SetCellInt(shopsheet, shop_patch_column+srowx, npatches) // Shop tab
 			feesdue += npatches * cfg.Patchcost
 		}
 
@@ -569,11 +570,13 @@ func main() {
 
 		// Overview
 		f.SetCellValue(overviewsheet, "D"+srowx, fmtIBA(RiderIBA))
-		f.SetCellValue(overviewsheet, "E"+srowx, fmtNovice(novicerider))
 
 		f.SetCellValue(overviewsheet, "F"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
-		f.SetCellValue(overviewsheet, "G"+srowx, fmtIBA(PillionIBA))
-		f.SetCellValue(overviewsheet, "H"+srowx, fmtNovice(novicepillion))
+		if cfg.Rally != "rblr" {
+			f.SetCellValue(overviewsheet, "E"+srowx, fmtNovice(novicerider))
+			f.SetCellValue(overviewsheet, "G"+srowx, fmtIBA(PillionIBA))
+			f.SetCellValue(overviewsheet, "H"+srowx, fmtNovice(novicepillion))
+		}
 		f.SetCellValue(overviewsheet, "I"+srowx, proper(Make))
 		f.SetCellValue(overviewsheet, "J"+srowx, proper(Model))
 
@@ -595,18 +598,22 @@ func main() {
 		}
 
 		if includeShopTab {
-			cols = "DEFGH"
+			//cols = "DEFGH"
+			n, _ := excelize.ColumnNameToNumber("D")
 			for col = 0; col < len(tshirts); col++ {
 				if tshirts[col] > 0 {
-					f.SetCellInt(shopsheet, string(cols[col])+srowx, tshirts[col])
+					x, _ := excelize.ColumnNumberToName(n + col)
+					f.SetCellInt(shopsheet, x+srowx, tshirts[col])
 				}
 			}
 		}
 
-		cols = "STUVW"
+		//cols = "STUVW"
+		n, _ := excelize.ColumnNameToNumber("S")
 		for col = 0; col < len(tshirts); col++ {
 			if tshirts[col] > 0 {
-				f.SetCellInt(overviewsheet, string(cols[col])+srowx, tshirts[col])
+				x, _ := excelize.ColumnNumberToName(n + col)
+				f.SetCellInt(overviewsheet, x+srowx, tshirts[col])
 			}
 		}
 
@@ -680,7 +687,7 @@ func main() {
 	if includeShopTab {
 		f.SetCellStyle(shopsheet, "A2", "A"+srowx, styleV2)
 		f.SetCellStyle(shopsheet, "B2", "C"+srowx, styleV2L)
-		f.SetCellStyle(shopsheet, "D2", "I"+srowx, styleV2)
+		f.SetCellStyle(shopsheet, "D2", shop_patch_column+srowx, styleV2)
 	}
 
 	f.SetCellStyle(regsheet, "A2", "A"+srowx, styleV2)
@@ -699,10 +706,12 @@ func main() {
 		f.SetCellStyle(regsheet, "J2", "J"+srowx, styleV)
 	}
 	if len(cfg.Tshirts) > 0 {
-		f.SetCellStyle(overviewsheet, "S2", "W"+srowx, styleV)
+		n, _ := excelize.ColumnNameToNumber("S")
+		x, _ := excelize.ColumnNumberToName(n + len(cfg.Tshirts) - 1)
+		f.SetCellStyle(overviewsheet, "S2", x+srowx, styleV)
 	}
 	if cfg.Patchavail {
-		f.SetCellStyle(overviewsheet, "X2", "X"+srowx, styleV)
+		f.SetCellStyle(overviewsheet, overview_patch_column+"2", overview_patch_column+srowx, styleV)
 	}
 
 	//f.SetCellStyle(overviewsheet, "G2", "J"+srowx, styleV2)
@@ -977,27 +986,27 @@ func main() {
 	}
 
 	if len(cfg.Tshirts) > 0 {
-		f.SetColWidth(overviewsheet, "S", "W", 3)
-		f.SetCellValue(overviewsheet, "S1", " T-shirt S")
-		f.SetCellValue(overviewsheet, "T1", " T-shirt M")
-		f.SetCellValue(overviewsheet, "U1", " T-shirt L")
-		f.SetCellValue(overviewsheet, "V1", " T-shirt XL")
-		f.SetCellValue(overviewsheet, "W1", " T-shirt XXL")
+		n, _ := excelize.ColumnNameToNumber("S")
+		for i := 0; i < len(cfg.Tshirts); i++ {
+			x, _ := excelize.ColumnNumberToName(n + i)
+			f.SetColWidth(overviewsheet, x, x, 3)
+			f.SetCellValue(overviewsheet, x+"1", tshirt_sizes[i])
+		}
 	}
 	if cfg.Patchavail {
-		f.SetColWidth(overviewsheet, "X", "X", 3)
-		f.SetCellValue(overviewsheet, "X1", " Patches")
+		f.SetColWidth(overviewsheet, overview_patch_column, overview_patch_column, 3)
+		f.SetCellValue(overviewsheet, overview_patch_column+"1", " Patches")
 	}
 	if includeShopTab {
 		if len(cfg.Tshirts) > 0 {
-			f.SetCellValue(shopsheet, "D1", " T-shirt S")
-			f.SetCellValue(shopsheet, "E1", " T-shirt M")
-			f.SetCellValue(shopsheet, "F1", " T-shirt L")
-			f.SetCellValue(shopsheet, "G1", " T-shirt XL")
-			f.SetCellValue(shopsheet, "H1", " T-shirt XXL")
+			n, _ := excelize.ColumnNameToNumber("D")
+			for i := 0; i < len(cfg.Tshirts); i++ {
+				x, _ := excelize.ColumnNumberToName(n + i)
+				f.SetCellValue(shopsheet, x+"1", tshirt_sizes[i])
+			}
 		}
 		if cfg.Patchavail {
-			f.SetCellValue(shopsheet, "I1", " Patches")
+			f.SetCellValue(shopsheet, shop_patch_column+"1", " Patches")
 		}
 	}
 
