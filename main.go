@@ -560,12 +560,12 @@ func main() {
 
 		// NOK List
 		f.SetCellValue(noksheet, "D"+srowx, Mobile)
-		f.SetCellValue(noksheet, "E"+srowx, strings.Title(NokName))
-		f.SetCellValue(noksheet, "F"+srowx, strings.Title(NokRelation))
+		f.SetCellValue(noksheet, "E"+srowx, properName(NokName))
+		f.SetCellValue(noksheet, "F"+srowx, properName(NokRelation))
 		f.SetCellValue(noksheet, "G"+srowx, NokNumber)
 
 		// Registration log
-		f.SetCellValue(regsheet, "E"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
+		f.SetCellValue(regsheet, "E"+srowx, properName(PillionFirst)+" "+properName(PillionLast))
 		f.SetCellValue(regsheet, "G"+srowx, proper(Make)+" "+proper(Model))
 
 		// Overview
