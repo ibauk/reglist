@@ -18,6 +18,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -29,14 +30,14 @@ import (
 )
 
 var rally *string = flag.String("cfg", "rblr", "Which rally is this (yml file)")
-var csvName *string = flag.String("csv", "rblrentrants.csv", "Path to CSV downloaded from Wufoo")
+var csvName *string = flag.String("csv", "entrants.csv", "Path to CSV downloaded from Wufoo")
 var csvReport *bool = flag.Bool("rpt", false, "CSV downloaded from Wufoo report")
-var sqlName *string = flag.String("sql", "rblrdata.db", "Path to SQLite database")
+var sqlName *string = flag.String("sql", "entrantdata.db", "Path to SQLite database")
 var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 
-const apptitle = "IBAUK Reglist v0.0.7\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v0.0.8\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -1140,6 +1141,23 @@ func makeSQLTable(db *sql.DB) {
 	db.Exec("PRAGMA foreign_keys=OFF")
 	db.Exec("BEGIN TRANSACTION")
 	_, err = db.Exec("CREATE TABLE entrants (" + dbfieldsx + x + " INTEGER)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.Exec(`CREATE TABLE "rally" (
+		"name"	TEXT,
+		"year"	TEXT,
+		"extracted"	TEXT,
+		"csv" TEXT
+	)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.Exec("INSERT INTO rally (name,Year,extracted,csv) VALUES(?,?,?,?)",
+		cfg.Rally,
+		cfg.Year,
+		time.Now().Format("Mon Jan 2 15:04:05 MST 2006"),
+		filepath.Base(*csvName))
 	if err != nil {
 		log.Fatal(err)
 	}
