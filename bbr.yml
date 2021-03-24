@@ -29,7 +29,7 @@ rfields: ["EntryId","RiderName","RiderLast","RiderIBANumber",
 					"PaymentStatus","PaymentTotal","Payment_Currency","Payment_Confirmation","Payment_Merchant",
 					"Date_Created","Created_By","Date_Updated","Updated_By",
 					"IP_Address","Last_Page_Accessed","Completion_Status"]
-tshirtsizes: ["S","M","L","XL","XXL"]
+tshirtsizes: [S,M,L,XL,XXL]
 tshirtcost: 0
 riderfee: 85
 pillionfee: 20

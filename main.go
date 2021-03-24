@@ -977,13 +977,16 @@ func main() {
 		f.SetCellValue(overviewsheet, "X1", " Patches")
 	}
 	if includeShopTab {
-		f.SetCellValue(shopsheet, "D1", " T-shirt S")
-		f.SetCellValue(shopsheet, "E1", " T-shirt M")
-		f.SetCellValue(shopsheet, "F1", " T-shirt L")
-		f.SetCellValue(shopsheet, "G1", " T-shirt XL")
-		f.SetCellValue(shopsheet, "H1", " T-shirt XXL")
-
-		f.SetCellValue(shopsheet, "I1", " Patches")
+		if len(cfg.Tshirts) > 0 {
+			f.SetCellValue(shopsheet, "D1", " T-shirt S")
+			f.SetCellValue(shopsheet, "E1", " T-shirt M")
+			f.SetCellValue(shopsheet, "F1", " T-shirt L")
+			f.SetCellValue(shopsheet, "G1", " T-shirt XL")
+			f.SetCellValue(shopsheet, "H1", " T-shirt XXL")
+		}
+		if cfg.Patchavail {
+			f.SetCellValue(shopsheet, "I1", " Patches")
+		}
 	}
 
 	f.SetRowHeight(overviewsheet, 1, 70)
