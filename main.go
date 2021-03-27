@@ -36,8 +36,9 @@ var sqlName *string = flag.String("sql", "entrantdata.db", "Path to SQLite datab
 var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
+var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
 
-const apptitle = "IBAUK Reglist v0.0.8\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v0.0.9\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -120,10 +121,11 @@ func proper(x string) string {
 // properBike attempts to properly capitalise the various parts of a
 // bike description. Mostly but not always that means uppercasing it.
 func properBike(x string) string {
-	var specials = []string{"Adventure", "BMW", "BSA", "cc", "DCT", "DVT",
-		"FJR", "GS", "GSA", "GT", "GTR", "Harley-Davidson",
-		"KLE", "KTM", "LC", "MV", "N", "R", "RS", "RT", "SE", "ST", "SX", "TVS",
-		"VFR", "V-Strom", "VTR", "XC", "XRT"}
+	var specials = []string{"Adventure", "Africa", "BMW", "BSA", "cc", "DCT", "DVT",
+		"Explorer",
+		"FJR", "GS", "GSA", "GT", "GTR", "Harley-Davidson", "Honda", "Kawasaki",
+		"KLE", "KTM", "LC", "MV", "N", "R", "RS", "RT", "SE", "ST", "SX", "Triumph", "TVS",
+		"Twin", "Varadero", "Versys", "VFR", "V-Strom", "VTR", "XC", "XRT"}
 	for _, e := range specials {
 		re := regexp.MustCompile(`(?i)(.*)\b(` + e + `)\b(.*)`)
 		if re.MatchString(x) {
@@ -377,6 +379,16 @@ func main() {
 
 	f := initSpreadsheet()
 
+	exportingCSV := *expReport != ""
+	var csvF *os.File
+	var csvW *csv.Writer
+
+	if exportingCSV {
+		csvF = makeFile(*expReport)
+		defer csvF.Close()
+		csvW = makeCSVFile(csvF)
+	}
+
 	rows1, err1 := db.Query(sqlx)
 	if err1 != nil {
 		log.Fatal(err1)
@@ -462,7 +474,7 @@ func main() {
 
 		Make, Model = extractMakeModel(properBike(Bike))
 
-		e.Entrantid = entrantid // All adjustments already applied
+		e.Entrantid = strconv.Itoa(entrantid) // All adjustments already applied
 		e.RiderFirst = properName(RiderFirst)
 		e.RiderLast = properName(RiderLast)
 		e.RiderIBA = fmtIBA(RiderIBA)
@@ -686,7 +698,7 @@ func main() {
 
 		// Registration log
 		f.SetCellValue(regsheet, "E"+srowx, properName(PillionFirst)+" "+properName(PillionLast))
-		f.SetCellValue(regsheet, "G"+srowx, proper(Make)+" "+proper(Model))
+		f.SetCellValue(regsheet, "G"+srowx, Make+" "+Model)
 
 		// Overview
 		f.SetCellValue(overviewsheet, "D"+srowx, fmtIBA(RiderIBA))
@@ -698,7 +710,7 @@ func main() {
 			f.SetCellValue(overviewsheet, "H"+srowx, fmtNovice(novicepillion))
 		}
 		f.SetCellValue(overviewsheet, "I"+srowx, ShortMaker(Make))
-		f.SetCellValue(overviewsheet, "J"+srowx, proper(Model))
+		f.SetCellValue(overviewsheet, "J"+srowx, Model)
 
 		f.SetCellValue(overviewsheet, "K"+srowx, Miles)
 
@@ -739,7 +751,11 @@ func main() {
 
 		srow++
 
-		fmt.Printf("%v\n", e)
+		fmt.Printf("%v\n", Entrant2Strings(e))
+
+		if exportingCSV {
+			csvW.Write(Entrant2Strings(e))
+		}
 
 	} // End reading loop
 
@@ -1187,6 +1203,24 @@ func renameSheet(f *excelize.File, oldname *string, newname string) {
 	*oldname = newname
 
 }
+
+func makeFile(csvname string) *os.File {
+
+	file, err := os.Create(csvname)
+	if err != nil {
+		panic(err)
+	}
+	return file
+
+}
+
+func makeCSVFile(f *os.File) *csv.Writer {
+
+	writer := csv.NewWriter(f)
+	writer.Write(EntrantHeaders())
+	return writer
+}
+
 func loadCSVFile(db *sql.DB) {
 
 	file, err := os.Open(*csvName)
@@ -1544,9 +1578,9 @@ func extractMakeModel(bike string) (string, string) {
 	re := regexp.MustCompile(`([A-Za-z\-]*)\s*(.*)`)
 	sm := re.FindSubmatch([]byte(bike))
 	if len(sm) < 3 {
-		return proper(string(sm[1])), ""
+		return string(sm[1]), ""
 	}
-	return proper(string(sm[1])), string(sm[2])
+	return string(sm[1]), string(sm[2])
 
 }
 

@@ -40,7 +40,7 @@ func NewTotals(numRoutes, numSizes, numBikes int) *Totals {
 }
 
 type Entrant struct {
-	Entrantid        int
+	Entrantid        string
 	RiderFirst       string
 	RiderLast        string
 	RiderIBA         string
@@ -82,4 +82,15 @@ func EntrantHeaders() []string {
 		res = append(res, te.Field(i).Name)
 	}
 	return res
+}
+
+func Entrant2Strings(e Entrant) []string {
+
+	te := reflect.ValueOf(e)
+	var res []string
+	for i := 0; i < te.NumField(); i++ {
+		res = append(res, te.Field(i).String())
+	}
+	return res
+
 }
