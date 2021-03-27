@@ -114,9 +114,23 @@ func proper(x string) string {
 }
 
 func properName(x string) string {
+	var specials = []string{"McCrea", "McCreanor"}
+
 	var xx = strings.TrimSpace(x)
 	if strings.ToUpper(xx) == xx || strings.ToLower(xx) == xx {
-		return strings.Title(strings.ToLower(xx))
+		// Now need to special names like McCrea, McCreanor, etc
+		// This might be one word or more than one so
+		w := strings.Split(xx, " ")
+		for i := 0; i < len(w); i++ {
+			wx := strings.ToLower(w[i])
+			w[i] = strings.Title(wx)
+			for _, wy := range specials {
+				if wx == strings.ToLower(wy) {
+					w[i] = wy
+				}
+			}
+		}
+		return strings.Join(w, " ")
 	}
 	return xx
 
@@ -369,6 +383,9 @@ func main() {
 	var tshirts [max_tshirt_sizes]int
 	var totTShirts [max_tshirt_sizes]int = [max_tshirt_sizes]int{0}
 
+	// 6 is the number of RBLR routes - should be more generalised class taken from config, slapped wrist
+	tot := NewTotals(6, max_tshirt_sizes, 0)
+
 	for rows1.Next() {
 		var RiderFirst string
 		var RiderLast string
@@ -417,11 +434,15 @@ func main() {
 				tshirts[i]++
 				totTShirts[i]++
 				grandTotalTShirts++
+				tot.NumTshirtsBySize[i]++
+				tot.NumTshirts++
 			}
 			if cfg.Tshirts[i] == T2 {
 				tshirts[i]++
 				totTShirts[i]++
 				grandTotalTShirts++
+				tot.NumTshirtsBySize[i]++
+				tot.NumTshirts++
 			}
 		}
 		srowx = strconv.Itoa(srow)
@@ -434,39 +455,53 @@ func main() {
 			if bikes[i].make == Make {
 				bikes[i].num++
 				ok = false
+				tot.Bikes[i].Num++
 			}
 		}
 		if ok { // Add a new make tothe list
 			bm := bikemake{Make, 1}
 			bikes = append(bikes, bm)
+			bmt := Bikemake{Make, 1}
+			tot.Bikes = append(tot.Bikes, bmt)
 		}
 
 		numRiders++
+		tot.NumRiders++
 
 		if strings.Contains(novicerider, cfg.Novice) {
 			numNovices++
+			tot.NumNovices++
 		}
 		if strings.Contains(novicepillion, cfg.Novice) {
 			numNovices++
+			tot.NumNovices++
 		}
 		if RiderIBA != "" {
 			numIBAMembers++
+			tot.NumIBAMembers++
 		}
 		if PillionIBA != "" {
 			numIBAMembers++
+			tot.NumIBAMembers++
 		}
 
 		if cfg.Rally == "rblr" {
 			if intval(miles2squires) < shortestSquires {
 				shortestSquires = intval(miles2squires)
+				tot.LoMiles2Squires = intval(miles2squires)
 			}
 			if intval(miles2squires) > longestSquires {
 				longestSquires = intval(miles2squires)
+				tot.HiMiles2Squires = intval(miles2squires)
 			}
 			if freecamping == "Yes" {
 				numCamping++
+				tot.NumCamping++
 			}
 		}
+
+		npatches := intval(Patches)
+		tot.NumPatches += npatches
 
 		// Entrant IDs
 		f.SetCellInt(overviewsheet, "A"+srowx, entrantid)
@@ -505,6 +540,7 @@ func main() {
 		if PillionFirst != "" && PillionLast != "" {
 			f.SetCellInt(paysheet, "E"+srowx, cfg.Pillionfee)
 			numPillions++
+			tot.NumPillions++
 			feesdue += cfg.Pillionfee
 		}
 		var nt int = 0
@@ -516,7 +552,6 @@ func main() {
 			feesdue += nt * cfg.Tshirtcost
 		}
 
-		npatches := intval(Patches)
 		totPatches += npatches
 		if cfg.Patchavail && npatches > 0 {
 			f.SetCellInt(overviewsheet, "X"+srowx, npatches) // Overview tab
@@ -527,13 +562,20 @@ func main() {
 
 		intCash := intval(Cash)
 		totCash += intCash
+
+		tot.TotMoneyCashPaypal += intCash
+
 		Sponsorship := 0
 		totPayment += intval(PayTot)
+
+		tot.TotMoneyMainPaypal += intval(PayTot)
 
 		if cfg.Sponsorship {
 			// This extracts a number if present from either "Include ..." or "I'll bring ..."
 			Sponsorship = intval(Sponsor) // "50"
 			totSponsorship += Sponsorship
+
+			tot.TotMoneySponsor += Sponsorship
 
 			if *safemode {
 				if Sponsorship != 0 {
