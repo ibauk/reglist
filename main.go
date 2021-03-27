@@ -69,8 +69,10 @@ ifnull(Tshirt1,''),ifnull(Tshirt2,''),ifnull(Patches,'0'),ifnull(Cash,'0'),
 ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
 FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,''),
-ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),
-ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,'')`
+ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnull(Registration,''),
+ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,''),
+ifnull(Rider_Address,''),ifnull(Address_Line_2,''),ifnull(City,''),ifnull(State_Province_Region,''),
+ifnull(Postal_Zip_Code,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,'')`
 
 const sqlx_rally = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -79,7 +81,9 @@ ifnull(Tshirt1,''),ifnull(Tshirt2,''),
 ifnull(Mobilephone,''),
 ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
 FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
-ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,'')`
+ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnull(Registration,''),
+ifnull(Rider_Address,''),ifnull(Address_Line_2,''),ifnull(City,''),ifnull(State_Province_Region,''),
+ifnull(Postal_Zip_Code,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,'')`
 
 var sqlx string
 
@@ -386,6 +390,10 @@ func main() {
 	// 6 is the number of RBLR routes - should be more generalised class taken from config, slapped wrist
 	tot := NewTotals(6, max_tshirt_sizes, 0)
 
+	ehdrs := EntrantHeaders()
+
+	fmt.Printf("%v\n\n", ehdrs)
+
 	for rows1.Next() {
 		var RiderFirst string
 		var RiderLast string
@@ -403,6 +411,9 @@ func main() {
 		var feesdue int = 0
 		var odocounts string
 
+		// Entrant record for export
+		var e Entrant
+
 		for i := 0; i < num_tshirt_sizes; i++ {
 			tshirts[i] = 0
 		}
@@ -412,15 +423,56 @@ func main() {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
-				&odocounts, &miles2squires, &freecamping)
+				&odocounts, &e.BikeReg, &miles2squires, &freecamping,
+				&e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
+				&e.Email, &e.Phone, &e.BonusClaimMethod)
 		} else {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &T1, &T2,
-				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion, &odocounts)
+				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion, &odocounts,
+				&e.BikeReg, &e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
+				&e.Email, &e.Phone, &e.BonusClaimMethod)
 		}
 		if err2 != nil {
 			log.Fatal(err2)
 		}
+
+		Make, Model = extractMakeModel(Bike)
+
+		e.Entrantid = entrantid // All adjustments already applied
+		e.RiderFirst = properName(RiderFirst)
+		e.RiderLast = properName(RiderLast)
+		e.RiderIBA = fmtIBA(RiderIBA)
+		e.RiderNovice = fmtNoviceYN(novicerider)
+		e.PillionFirst = properName(PillionFirst)
+		e.PillionLast = properName(PillionLast)
+		e.PillionIBA = fmtIBA(PillionIBA)
+		e.PillionNovice = fmtNoviceYN(novicepillion)
+		e.BikeMake = Make
+		e.BikeModel = Model
+		e.OdoKms = fmtOdoKM(odocounts)
+
+		e.BikeReg = strings.ToUpper(e.BikeReg)
+		// e.Email = ""
+		// e.Phone = ""
+		// e.Address1 = ""
+		// e.Address2 = ""
+		// e.Town = ""
+		// e.County = ""
+		e.Postcode = strings.ToUpper(e.Postcode)
+		// e.Country = ""
+
+		e.NokName = properName(NokName)
+		e.NokPhone = NokNumber
+		e.NokRelation = properName(NokRelation)
+
+		// e.BonusClaimMethod = ""
+		e.RouteClass = Route
+		e.Tshirt1 = T1
+		e.Tshirt2 = T2
+		e.Patches = Patches
+		e.Camping = fmtCampingYN(freecamping)
+		e.Miles2Squires = strconv.Itoa(intval(miles2squires))
 
 		RiderFirst = properName(RiderFirst)
 		RiderLast = properName(RiderLast)
@@ -446,8 +498,6 @@ func main() {
 			}
 		}
 		srowx = strconv.Itoa(srow)
-
-		Make, Model = extractMakeModel(Bike)
 
 		// Count the bikes by Make
 		var ok bool = true
@@ -514,22 +564,22 @@ func main() {
 		f.SetCellInt(chksheet, "A"+srowx, entrantid)
 
 		// Rider names
-		f.SetCellValue(overviewsheet, "B"+srowx, strings.Title(RiderFirst))
-		f.SetCellValue(overviewsheet, "C"+srowx, strings.Title(RiderLast))
-		f.SetCellValue(regsheet, "B"+srowx, strings.Title(RiderFirst))
-		f.SetCellValue(regsheet, "C"+srowx, strings.Title(RiderLast))
-		f.SetCellValue(noksheet, "B"+srowx, strings.Title(RiderFirst))
-		f.SetCellValue(noksheet, "C"+srowx, strings.Title(RiderLast))
-		f.SetCellValue(paysheet, "B"+srowx, strings.Title(RiderFirst))
-		f.SetCellValue(paysheet, "C"+srowx, strings.Title(RiderLast))
+		f.SetCellValue(overviewsheet, "B"+srowx, RiderFirst)
+		f.SetCellValue(overviewsheet, "C"+srowx, RiderLast)
+		f.SetCellValue(regsheet, "B"+srowx, RiderFirst)
+		f.SetCellValue(regsheet, "C"+srowx, RiderLast)
+		f.SetCellValue(noksheet, "B"+srowx, RiderFirst)
+		f.SetCellValue(noksheet, "C"+srowx, RiderLast)
+		f.SetCellValue(paysheet, "B"+srowx, RiderFirst)
+		f.SetCellValue(paysheet, "C"+srowx, RiderLast)
 		if includeShopTab {
-			f.SetCellValue(shopsheet, "B"+srowx, strings.Title(RiderFirst))
-			f.SetCellValue(shopsheet, "C"+srowx, strings.Title(RiderLast))
+			f.SetCellValue(shopsheet, "B"+srowx, RiderFirst)
+			f.SetCellValue(shopsheet, "C"+srowx, RiderLast)
 		}
-		f.SetCellValue(chksheet, "B"+srowx, strings.Title(RiderFirst))
-		f.SetCellValue(chksheet, "C"+srowx, strings.Title(RiderLast))
+		f.SetCellValue(chksheet, "B"+srowx, RiderFirst)
+		f.SetCellValue(chksheet, "C"+srowx, RiderLast)
 		f.SetCellValue(chksheet, "D"+srowx, strings.Title(Bike))
-		if odocounts[0] == 'K' {
+		if len(odocounts) > 0 && odocounts[0] == 'K' {
 			f.SetCellValue(chksheet, "F"+srowx, "kms")
 		}
 
@@ -665,7 +715,10 @@ func main() {
 		}
 
 		srow++
-	}
+
+		fmt.Printf("%v\n", e)
+
+	} // End reading loop
 
 	fmt.Printf("%v entrants written\n", numRiders)
 
@@ -1488,4 +1541,32 @@ func fmtNovice(x string) string {
 		return "Yes"
 	}
 	return ""
+}
+
+func fmtNoviceYN(x string) string {
+	if fmtNovice(x) != "" && x[0] != 'N' && x[0] != 'n' {
+		return "Y"
+	} else {
+		return "N"
+	}
+}
+
+func fmtOdoKM(x string) string {
+
+	y := strings.ToUpper(x)
+	if len(y) > 0 && y[0] == 'K' {
+		return "K"
+	}
+	return "M"
+
+}
+
+func fmtCampingYN(x string) string {
+
+	y := strings.ToUpper(x)
+	if len(y) > 0 && y[0] == 'Y' {
+		return "Y"
+	}
+	return "N"
+
 }
