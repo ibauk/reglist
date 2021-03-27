@@ -117,6 +117,29 @@ func proper(x string) string {
 
 }
 
+// properBike attempts to properly capitalise the various parts of a
+// bike description. Mostly but not always that means uppercasing it.
+func properBike(x string) string {
+	var specials = []string{"Adventure", "BMW", "BSA", "cc", "DCT", "DVT",
+		"FJR", "GS", "GSA", "GT", "GTR", "Harley-Davidson",
+		"KLE", "KTM", "LC", "MV", "N", "R", "RS", "RT", "SE", "ST", "SX", "TVS",
+		"VFR", "V-Strom", "VTR", "XC", "XRT"}
+	for _, e := range specials {
+		re := regexp.MustCompile(`(?i)(.*)\b(` + e + `)\b(.*)`)
+		if re.MatchString(x) {
+			res := re.FindStringSubmatch(x)
+			x = res[1] + e + res[3]
+		} else {
+			re := regexp.MustCompile(`(?i)(.*)(0` + e + `)\b(.*)`)
+			if re.MatchString(x) {
+				res := re.FindStringSubmatch(x)
+				x = res[1] + "0" + e + res[3]
+			}
+		}
+	}
+	return x
+}
+
 func properName(x string) string {
 	var specials = []string{"McCrea", "McCreanor"}
 
@@ -437,7 +460,7 @@ func main() {
 			log.Fatal(err2)
 		}
 
-		Make, Model = extractMakeModel(Bike)
+		Make, Model = extractMakeModel(properBike(Bike))
 
 		e.Entrantid = entrantid // All adjustments already applied
 		e.RiderFirst = properName(RiderFirst)
@@ -674,7 +697,7 @@ func main() {
 			f.SetCellValue(overviewsheet, "G"+srowx, fmtIBA(PillionIBA))
 			f.SetCellValue(overviewsheet, "H"+srowx, fmtNovice(novicepillion))
 		}
-		f.SetCellValue(overviewsheet, "I"+srowx, proper(Make))
+		f.SetCellValue(overviewsheet, "I"+srowx, ShortMaker(Make))
 		f.SetCellValue(overviewsheet, "J"+srowx, proper(Model))
 
 		f.SetCellValue(overviewsheet, "K"+srowx, Miles)
@@ -724,7 +747,9 @@ func main() {
 
 	// Write out totals
 	f.SetColWidth(totsheet, "A", "A", 30)
+	f.SetColWidth(totsheet, "E", "E", 15)
 	f.SetCellStyle(totsheet, "A3", "A16", styleRJ)
+	f.SetCellStyle(totsheet, "E3", "E16", styleRJ)
 	for i := 3; i <= 16; i++ {
 		f.SetRowHeight(totsheet, i, 30)
 	}
@@ -1123,7 +1148,6 @@ func main() {
 		f.SetCellValue(totsheet, "E"+strconv.Itoa(srow+1), bikes[i].make)
 		f.SetCellInt(totsheet, "F"+strconv.Itoa(srow+1), bikes[i].num)
 		f.SetCellStyle(totsheet, "F"+strconv.Itoa(srow+1), "F"+strconv.Itoa(srow), styleRJ)
-		f.SetColWidth(totsheet, "E", "E", 12)
 
 		ntot += bikes[i].num
 		srow++
@@ -1517,7 +1541,7 @@ func extractMakeModel(bike string) (string, string) {
 	if strings.TrimSpace(bike) == "" {
 		return "", ""
 	}
-	re := regexp.MustCompile(`([A-Za-z]*)\s*(.*)`)
+	re := regexp.MustCompile(`([A-Za-z\-]*)\s*(.*)`)
 	sm := re.FindSubmatch([]byte(bike))
 	if len(sm) < 3 {
 		return proper(string(sm[1])), ""
@@ -1569,4 +1593,13 @@ func fmtCampingYN(x string) string {
 	}
 	return "N"
 
+}
+
+func ShortMaker(x string) string {
+
+	p := strings.Index(x, "-")
+	if p < 0 {
+		return x
+	}
+	return x[0:p]
 }
