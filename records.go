@@ -49,6 +49,7 @@ type Entrant struct {
 	PillionLast      string
 	PillionIBA       string
 	PillionNovice    string
+	Bike             string
 	BikeMake         string
 	BikeModel        string
 	BikeReg          string

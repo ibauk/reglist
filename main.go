@@ -38,7 +38,7 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
 
-const apptitle = "IBAUK Reglist v1.0.0\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.0.0-b\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -512,6 +512,7 @@ func main() {
 		e.Patches = Patches
 		e.Camping = fmtCampingYN(freecamping)
 		e.Miles2Squires = strconv.Itoa(intval(miles2squires))
+		e.Bike = Bike
 
 		RiderFirst = properName(RiderFirst)
 		RiderLast = properName(RiderLast)
