@@ -475,7 +475,8 @@ func main() {
 			log.Fatal(err2)
 		}
 
-		Make, Model = extractMakeModel(properBike(Bike))
+		Bike = properBike(Bike)
+		Make, Model = extractMakeModel(Bike)
 
 		e.Entrantid = strconv.Itoa(entrantid) // All adjustments already applied
 		e.RiderFirst = properName(RiderFirst)
