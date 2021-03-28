@@ -68,23 +68,23 @@ ifnull(BikeMakeModel,''),round(ifnull(MilesTravelledToSquires,'0')),
 ifnull(FreeCamping,''),ifnull(WhichRoute,'A'),
 ifnull(Tshirt1,''),ifnull(Tshirt2,''),ifnull(Patches,'0'),ifnull(Cash,'0'),
 ifnull(Mobilephone,''),
-ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
+ifnull(NOKName,''),ifnull(NOKNumber,''),ifnull(NOKRelation,''),
 FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(PaymentStatus,''),
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnull(Registration,''),
 ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,''),
-ifnull(Rider_Address,''),ifnull(Address_Line_2,''),ifnull(City,''),ifnull(State_Province_Region,''),
-ifnull(Postal_Zip_Code,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,'')`
+ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
+ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,'')`
 
 const sqlx_rally = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
 ifnull(BikeMakeModel,''),
 ifnull(Tshirt1,''),ifnull(Tshirt2,''),
 ifnull(Mobilephone,''),
-ifnull(Emergencycontactname,''),ifnull(Emergencycontactnumber,''),ifnull(Emergencycontactrelationship,''),
+ifnull(NOKName,''),ifnull(NOKNumber,''),ifnull(NOKRelation,''),
 FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnull(Registration,''),
-ifnull(Rider_Address,''),ifnull(Address_Line_2,''),ifnull(City,''),ifnull(State_Province_Region,''),
-ifnull(Postal_Zip_Code,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,'')`
+ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
+ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,'')`
 
 var sqlx string
 
@@ -107,15 +107,6 @@ func fieldlistFromConfig(cols []string) string {
 	}
 
 	return res
-}
-
-func proper(x string) string {
-	var xx = strings.TrimSpace(x)
-	if strings.ToLower(xx) == xx {
-		return strings.Title(xx)
-	}
-	return xx
-
 }
 
 // properBike attempts to properly capitalise the various parts of a
@@ -758,6 +749,10 @@ func main() {
 		}
 
 	} // End reading loop
+
+	if exportingCSV {
+		csvW.Flush()
+	}
 
 	fmt.Printf("%v entrants written\n", numRiders)
 
