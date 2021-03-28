@@ -38,7 +38,7 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
 
-const apptitle = "IBAUK Reglist v0.0.9\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.0.0\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -91,6 +91,7 @@ var sqlx string
 var styleH, styleH2, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleRJ, styleRJSmall int
 
 var cfg *Config
+var words *Words
 
 var db *sql.DB
 var includeShopTab bool
@@ -112,18 +113,15 @@ func fieldlistFromConfig(cols []string) string {
 // properBike attempts to properly capitalise the various parts of a
 // bike description. Mostly but not always that means uppercasing it.
 func properBike(x string) string {
-	var specials = []string{"Adventure", "Africa", "BMW", "BSA", "cc", "DCT", "DVT",
-		"Explorer",
-		"FJR", "GS", "GSA", "GT", "GTR", "Harley-Davidson", "Honda", "Kawasaki",
-		"KLE", "KTM", "LC", "MV", "N", "R", "RS", "RT", "SE", "ST", "SX", "Triumph", "TVS",
-		"Twin", "Varadero", "Versys", "VFR", "V-Strom", "VTR", "XC", "XRT"}
+
+	var specials = words.Bikewords
 	for _, e := range specials {
-		re := regexp.MustCompile(`(?i)(.*)\b(` + e + `)\b(.*)`)
+		re := regexp.MustCompile(`(?i)(.*)\b(` + e + `)\b(.*)`) // a word on its own
 		if re.MatchString(x) {
 			res := re.FindStringSubmatch(x)
 			x = res[1] + e + res[3]
 		} else {
-			re := regexp.MustCompile(`(?i)(.*)(0` + e + `)\b(.*)`)
+			re := regexp.MustCompile(`(?i)(.*)(0` + e + `)\b(.*)`) // or right after an engine size
 			if re.MatchString(x) {
 				res := re.FindStringSubmatch(x)
 				x = res[1] + "0" + e + res[3]
@@ -134,18 +132,21 @@ func properBike(x string) string {
 }
 
 func properName(x string) string {
-	var specials = []string{"McCrea", "McCreanor"}
 
+	var specials = words.Specialnames
 	var xx = strings.TrimSpace(x)
 	if strings.ToUpper(xx) == xx || strings.ToLower(xx) == xx {
 		// Now need to special names like McCrea, McCreanor, etc
 		// This might be one word or more than one so
 		w := strings.Split(xx, " ")
 		for i := 0; i < len(w); i++ {
-			wx := strings.ToLower(w[i])
-			w[i] = strings.Title(wx)
+			var wx = w[i]
+			if words.Propernames {
+				wx = strings.ToLower(w[i])
+				w[i] = strings.Title(wx)
+			}
 			for _, wy := range specials {
-				if wx == strings.ToLower(wy) {
+				if strings.EqualFold(wx, wy) {
 					w[i] = wy
 				}
 			}
@@ -233,6 +234,13 @@ func init() {
 	fmt.Print(apptitle)
 
 	var cfgerr error
+
+	words, cfgerr = NewWords()
+	if cfgerr != nil {
+		log.Fatal(cfgerr)
+	}
+	//fmt.Printf("%v\n\n", words)
+
 	cfg, cfgerr = NewConfig(*rally + ".yml")
 	if cfgerr != nil {
 		log.Fatal(cfgerr)
@@ -243,9 +251,16 @@ func init() {
 		dbfieldsx = fieldlistFromConfig(cfg.Afields)
 	}
 
+	var sm string = "live"
+	if *safemode {
+		sm = "safe"
+	}
+
 	if cfg.Rally == "rblr" {
+		fmt.Printf("Running in RBLR mode - %v\n", sm)
 		sqlx = "SELECT " + sqlx_rblr + " FROM entrants ORDER BY " + cfg.EntrantOrder
 	} else {
+		fmt.Printf("Running in rally mode - %v\n", sm)
 		sqlx = "SELECT " + sqlx_rally + " FROM entrants ORDER BY " + cfg.EntrantOrder
 	}
 	var err error
@@ -256,7 +271,7 @@ func init() {
 
 	includeShopTab = len(cfg.Tshirts) > 0 || cfg.Patchavail
 	if includeShopTab {
-		//fmt.Printf("Including shop tab (%v)\n", len(cfg.Tshirts))
+		fmt.Printf("Including shop tab\n")
 		for i := 0; i < len(cfg.Tshirts); i++ { // Let's just have an uncontrolled panic if someone specifies too many sizes
 			tshirt_sizes[i] = " T-shirt " + cfg.Tshirts[i] // The leading space just makes sense
 		}
@@ -378,6 +393,7 @@ func main() {
 		csvF = makeFile(*expReport)
 		defer csvF.Close()
 		csvW = makeCSVFile(csvF)
+		fmt.Printf("Exporting CSV to %v\n", *expReport)
 	}
 
 	rows1, err1 := db.Query(sqlx)
@@ -415,10 +431,6 @@ func main() {
 
 	// 6 is the number of RBLR routes - should be more generalised class taken from config, slapped wrist
 	tot := NewTotals(6, max_tshirt_sizes, 0)
-
-	ehdrs := EntrantHeaders()
-
-	fmt.Printf("%v\n\n", ehdrs)
 
 	for rows1.Next() {
 		var RiderFirst string
@@ -604,7 +616,7 @@ func main() {
 		}
 		f.SetCellValue(chksheet, "B"+srowx, RiderFirst)
 		f.SetCellValue(chksheet, "C"+srowx, RiderLast)
-		f.SetCellValue(chksheet, "D"+srowx, strings.Title(Bike))
+		f.SetCellValue(chksheet, "D"+srowx, Bike)
 		if len(odocounts) > 0 && odocounts[0] == 'K' {
 			f.SetCellValue(chksheet, "F"+srowx, "kms")
 		}
@@ -694,7 +706,7 @@ func main() {
 		// Overview
 		f.SetCellValue(overviewsheet, "D"+srowx, fmtIBA(RiderIBA))
 
-		f.SetCellValue(overviewsheet, "F"+srowx, strings.Title(PillionFirst)+" "+strings.Title(PillionLast))
+		f.SetCellValue(overviewsheet, "F"+srowx, PillionFirst+" "+PillionLast)
 		if cfg.Rally != "rblr" {
 			f.SetCellValue(overviewsheet, "E"+srowx, fmtNovice(novicerider))
 			f.SetCellValue(overviewsheet, "G"+srowx, fmtIBA(PillionIBA))
@@ -742,7 +754,7 @@ func main() {
 
 		srow++
 
-		fmt.Printf("%v\n", Entrant2Strings(e))
+		//fmt.Printf("%v\n", Entrant2Strings(e))
 
 		if exportingCSV {
 			csvW.Write(Entrant2Strings(e))

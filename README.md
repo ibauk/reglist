@@ -1,4 +1,4 @@
-# Reglist - Rally info spreadsheet
+# Reglist - Rally info spreadsheet generator
 
 This creates a spreadsheet workbook (.xlsx) of entrant data ,derived from the original Wufoo form data, used to manage the RBLR1000 and other IBAUK rallies.
 
@@ -8,6 +8,8 @@ Entrant data all begins at the point when they sign up for the event using the r
 
 ## Safe / live versions
 The workbook can be generated as either a "safe" version, containing values only with no formulas, or as a live version using formulas to keep track of any changes made to the data. The advantage of the safe version is that it can be viewed in a variety of environments without fear of tripping local security measures.
+
+---
 
 ## Workbook pages
 
@@ -31,6 +33,8 @@ Presents simple statistics relating to various aspects of the event.
 
 ### Carpark tab
 Intended for "carpark check-out, check-in" use while the *Registration* and *NOK list* tabs provide a more comprehensive checklist.
+
+---
 
 ## Commandline arguments
 Reglist is run from a shell (terminal or cmd) prompt (commandline) and its operation is controlled by several arguments or parameters as below:-
@@ -59,6 +63,7 @@ Reglist is run from a shell (terminal or cmd) prompt (commandline) and its opera
 **-xls** *filename*
 >The full path for the resultant spreadsheet. The default is **reglist.xlsx** in the current folder.
 
+---
 
 ## Configuration files
 Further fine control over the output is achieved by the use of configuration files, one for each rally covered. The files are in standard [YAML](https://yaml.org/) format with contents as below:-
@@ -102,4 +107,9 @@ Further fine control over the output is achieved by the use of configuration fil
 
 **entrantorder:** *fieldlist*
 >Entrants will be listed on the spreadsheet in this order. *fieldlist* may contain SQL functions including **upper**, **lower**, etc and may also specify **DESC** to reverse the order.
+
+### Reglist feature control
+A file, **reglist.yml**, if present in the current folder controls internal features such as auto-capitalisation of names and bikes. This YAML file contains a switch and two arrays of strings, one for names and the other for bikes. The switch **propercasenames:** if true causes all names to be presented in "proper" or "title" case (John Smith, Fred Bone). Bike descriptions aren't given any blanket lettercase treatment.
+
+The list **specialnames:** specifies names with unusual lettercasing such as McKay or StJohn. **bikewords:** includes proper names such as Honda, Suzuki, Africa, Twin and so on as well as model codes such as "RS" or "N". The entries must be specified using the desired lettercasing so most variations are catered for.
 

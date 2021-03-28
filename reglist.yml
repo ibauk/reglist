@@ -1,0 +1,23 @@
+#
+# reglist.yml
+#
+# configuration of reglist itself, as opposed to for a single rally.
+#
+
+# Make names titled by default
+propercasenames: true
+
+# A list of names requiring capitalisation other than Ullll
+specialnames:
+  - Mccrea    # as per Facebook and forum.ironbutt.org
+  - McCreanor
+
+# A list of tokens used in bike descriptions used for proper capitalisation
+bikewords: ["Adventure", "Africa", "BMW", "BSA", "cc", "DCT", "DVT",
+		"Ducati", "Explorer",
+		"FJR", "GS", "GSA", "GT", "GTR", "Harley-Davidson", "Honda", "Kawasaki",
+		"KLE", "KTM", "LC", "MV", "N", "Norton", "R", "RS", "RT", "SE", "ST", "SX", 
+    "Suzuki", "Triumph", "TVS",
+		"Twin", "Varadero", "Versys", "VFR", "V-Strom", "VTR", "XC", "XRT",
+    "Yamagata", "Yamaha"]
+

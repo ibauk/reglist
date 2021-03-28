@@ -6,6 +6,40 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// Words holds the lists of words used to fix capitalisation
+type Words struct {
+	Propernames  bool     `yaml:"propercasenames"`
+	Specialnames []string `yaml:"specialnames"`
+	Bikewords    []string `yaml:"bikewords"`
+}
+
+// NewWords returns the word lists
+func NewWords() (*Words, error) {
+
+	configPath := "reglist.yml"
+	words := &Words{}
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return words, err // Empty so no cleansing will happen
+	}
+
+	file, err := os.Open(configPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Init new YAML decode
+	d := yaml.NewDecoder(file)
+
+	// Start YAML decoding from file
+	if err := d.Decode(&words); err != nil {
+		return nil, err
+	}
+
+	return words, nil
+}
+
 // Config holds the contents of the configuration file
 type Config struct {
 	Rally         string   `yaml:"name"`
