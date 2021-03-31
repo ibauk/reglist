@@ -9,8 +9,34 @@ propercasenames: true
 
 # A list of names requiring capitalisation other than Ullll
 specialnames:
-  - Mccrea    # as per Facebook and forum.ironbutt.org
+  - McCrea    # as per the man himself.
   - McCreanor
+  - O'Sullivan
+  - O'Brien
+  - O'Connor
+  - O'Neil
+  - O'Reilly
+  - McCarthy
+  - O'Doherty
+  - McLoughlin
+  - O'Carroll
+  - O'Connell
+  - O'Farrell
+  - O'Callaghan
+  - O'Donnell
+  - O'Mahony
+  - O'Shea
+  - McGrath
+  - O'Leary
+  - McDonnell
+  - MacMahon
+  - MacKenna
+  - O'Keeffe
+  - MacNamara
+  - MacDonald
+  - MacDermott
+  - O'Rourke
+  - O'Dwyer
 
 # A list of tokens used in bike descriptions used for proper capitalisation
 bikewords: ["Adventure", "Africa", "BMW", "BSA", "cc", "DCT", "DVT",
