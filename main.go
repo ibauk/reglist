@@ -38,7 +38,7 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
 
-const apptitle = "IBAUK Reglist v1.0.0-c\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.0.0-d\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -1587,7 +1587,7 @@ func extractMakeModel(bike string) (string, string) {
 	if strings.TrimSpace(bike) == "" {
 		return "", ""
 	}
-	re := regexp.MustCompile(`([A-Za-z\-]*)\s*(.*)`)
+	re := regexp.MustCompile(`\d*\s*([A-Za-z\-]*)\s*(.*)`)
 	sm := re.FindSubmatch([]byte(bike))
 	if len(sm) < 3 {
 		return string(sm[1]), ""
