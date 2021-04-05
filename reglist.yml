@@ -37,6 +37,7 @@ specialnames:
   - MacDermott
   - O'Rourke
   - O'Dwyer
+  - McNeil
 
 # A list of tokens used in bike descriptions used for proper capitalisation
 bikewords: ["Adventure", "Africa", "BMW", "BSA", "cc", "DCT", "DVT",

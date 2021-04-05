@@ -38,7 +38,7 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
 
-const apptitle = "IBAUK Reglist v1.0.0-d\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.0.0\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -55,7 +55,7 @@ var overview_patch_column, shop_patch_column string
 var dbfieldsx string
 
 var overviewsheet string = "Sheet1" // Renamed on init
-var noksheet string = "NOK list"
+var noksheet string = "Contacts"
 var paysheet string = "Money"
 var totsheet string = "Stats"
 var chksheet string = "Carpark"
