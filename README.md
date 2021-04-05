@@ -19,7 +19,7 @@ This front page is intended as a quick check page, with access to most informati
 ### Registration tab
 May be used as a physical registration log with columns to tick off key pieces of information.
 
-### NOK list
+### Contacts
 Holds contact details for entrants and who should be contacted in the event of accidents etc.
 
 ### Shop tab
