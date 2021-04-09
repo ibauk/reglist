@@ -38,7 +38,7 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
 
-const apptitle = "IBAUK Reglist v1.0.0\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.1.0\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -88,7 +88,7 @@ ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),i
 
 var sqlx string
 
-var styleH, styleH2, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleRJ, styleRJSmall int
+var styleH, styleH2, styleH2L, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleRJ, styleRJSmall int
 
 var cfg *Config
 var words *Words
@@ -333,7 +333,7 @@ func initSpreadsheet() *excelize.File {
 	if cfg.Rally == "rblr" {
 		f.SetCellStyle(regsheet, "I1", "J1", styleH2)
 	}
-	f.SetCellStyle(noksheet, "A1", "G1", styleH2)
+	f.SetCellStyle(noksheet, "A1", "H1", styleH2L)
 
 	f.SetCellStyle(paysheet, "A1", "K1", styleH2)
 
@@ -700,6 +700,7 @@ func main() {
 		f.SetCellValue(noksheet, "E"+srowx, properName(NokName))
 		f.SetCellValue(noksheet, "F"+srowx, properName(NokRelation))
 		f.SetCellValue(noksheet, "G"+srowx, NokNumber)
+		f.SetCellValue(noksheet, "H"+srowx, e.Email)
 
 		// Registration log
 		f.SetCellValue(regsheet, "E"+srowx, properName(PillionFirst)+" "+properName(PillionLast))
@@ -1103,7 +1104,11 @@ func main() {
 	f.SetCellValue(noksheet, "E1", "NOK name")
 	f.SetCellValue(noksheet, "F1", "Relationship")
 	f.SetCellValue(noksheet, "G1", "Contact number")
-	f.SetColWidth(noksheet, "D", "G", 20)
+	f.SetCellValue(noksheet, "H1", "Rider email")
+
+	f.SetColWidth(noksheet, "D", "G", 18)
+	f.SetColWidth(noksheet, "F", "F", 12)
+	f.SetColWidth(noksheet, "H", "H", 30)
 
 	f.SetCellValue(overviewsheet, "D1", "IBA #")
 	f.SetCellValue(overviewsheet, "E1", strings.Title(cfg.Novice))
@@ -1430,6 +1435,21 @@ func initStyles(f *excelize.File) {
 					"wrap_text": true
 				},
 				"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
+
+	styleH2L, _ = f.NewStyle(`{
+					"alignment":
+					{
+						"horizontal": "left",
+						"ident": 1,
+						"justify_last_line": true,
+						"reading_order": 0,
+						"relative_indent": 1,
+						"shrink_to_fit": true,
+						"text_rotation": 0,
+						"vertical": "center",
+						"wrap_text": true
+					},
+					"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
 
 	// Data
 	styleV, _ = f.NewStyle(`{

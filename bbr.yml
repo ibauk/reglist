@@ -39,5 +39,5 @@ sponsorship: false
 fundsonday: ''
 novice: rookie
 add2entrantid: 0
-entrantorder: FinalRiderNumber
+entrantorder: upper(RiderLast),upper(RiderName)
 
