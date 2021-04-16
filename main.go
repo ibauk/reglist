@@ -448,6 +448,7 @@ func main() {
 		var entrantid int
 		var feesdue int = 0
 		var odocounts string
+		var isFOC bool = false
 
 		// Entrant record for export
 		var e Entrant
@@ -474,6 +475,8 @@ func main() {
 		if err2 != nil {
 			log.Fatal(err2)
 		}
+
+		isFOC = Paid == "Refunded"
 
 		Bike = properBike(Bike)
 		Make, Model = extractMakeModel(Bike)
@@ -654,6 +657,10 @@ func main() {
 		totCash += intCash
 
 		tot.TotMoneyCashPaypal += intCash
+
+		if isFOC {
+			PayTot = strconv.Itoa(feesdue - intCash)
+		}
 
 		Sponsorship := 0
 		totPayment += intval(PayTot)
