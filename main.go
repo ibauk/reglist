@@ -523,6 +523,9 @@ func main() {
 		PillionLast = properName(PillionLast)
 
 		//fmt.Printf("%v (%v) %v (%v)\n", RiderFirst, T1, RiderLast, T2)
+		if isFOC {
+			fmt.Printf("Rider %v %v has Paid=%v and is therefore FOC\n", e.RiderFirst, e.RiderLast, Paid)
+		}
 
 		for i := 0; i < num_tshirt_sizes; i++ {
 			if cfg.Tshirts[i] == T1 {
