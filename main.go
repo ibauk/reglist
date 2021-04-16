@@ -1607,7 +1607,7 @@ func extractMakeModel(bike string) (string, string) {
 	if strings.TrimSpace(bike) == "" {
 		return "", ""
 	}
-	re := regexp.MustCompile(`\d*\s*([A-Za-z\-]*)\s*(.*)`)
+	re := regexp.MustCompile(`'*\d*\s*([A-Za-z\-]*)\s*(.*)`)
 	sm := re.FindSubmatch([]byte(bike))
 	if len(sm) < 3 {
 		return string(sm[1]), ""
