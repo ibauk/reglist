@@ -2,11 +2,19 @@ package main
 
 import (
 	"reflect"
+	"time"
 )
 
 type Bikemake struct {
 	Make string
 	Num  int
+}
+
+type Entrystats struct {
+	Month     string
+	Total     int
+	NumIBA    int
+	NumNovice int
 }
 
 type Totals struct {
@@ -27,6 +35,7 @@ type Totals struct {
 	TotMoneyMainPaypal int // Original Paypal payment
 	TotMoneyCashPaypal int // Subsequent Paypal payments
 	Bikes              []Bikemake
+	EntriesByPeriod    []Entrystats
 }
 
 func NewTotals(numRoutes, numSizes, numBikes int) *Totals {
@@ -35,6 +44,7 @@ func NewTotals(numRoutes, numSizes, numBikes int) *Totals {
 	t.NumTshirtsBySize = make([]int, numSizes)
 	t.NumRidersByRoute = make([]int, numRoutes)
 	t.Bikes = make([]Bikemake, numBikes)
+	t.EntriesByPeriod = make([]Entrystats, 0)
 	t.LoMiles2Squires = 9999
 	return &t
 }
@@ -72,6 +82,7 @@ type Entrant struct {
 	Patches          string
 	Camping          string
 	Miles2Squires    string
+	EnteredDate      string
 }
 
 func EntrantHeaders() []string {
@@ -94,4 +105,12 @@ func Entrant2Strings(e Entrant) []string {
 	}
 	return res
 
+}
+
+func ReportingPeriod(isodate string) string {
+	t, _ := time.Parse("2006-01-02 15:04:05", isodate)
+	for t.Weekday() != time.Monday && t.Day() > 1 {
+		t = t.AddDate(0, 0, -1)
+	}
+	return t.Format("01-02")
 }

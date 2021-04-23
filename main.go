@@ -73,7 +73,8 @@ FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(Paym
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnull(Registration,''),
 ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,''),
 ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
-ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,'')`
+ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,''),
+ifnull(Date_Created,'')`
 
 const sqlx_rally = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -84,7 +85,8 @@ ifnull(NOKName,''),ifnull(NOKNumber,''),ifnull(NOKRelation,''),
 FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnull(Registration,''),
 ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
-ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,'')`
+ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,''),
+ifnull(Date_Created,'')`
 
 var sqlx string
 
@@ -486,13 +488,13 @@ func mainloop() {
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
 				&odocounts, &e.BikeReg, &miles2squires, &freecamping,
 				&e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.BonusClaimMethod)
+				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate)
 		} else {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &T1, &T2,
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion, &odocounts,
 				&e.BikeReg, &e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.BonusClaimMethod)
+				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate)
 		}
 		if err2 != nil {
 			log.Fatal(err2)
@@ -578,19 +580,36 @@ func mainloop() {
 			tot.Bikes = append(tot.Bikes, bmt)
 		}
 
+		ebym := Entrystats{ReportingPeriod(e.EnteredDate), 1, 0, 0}
+
 		tot.NumRiders++
 
 		if strings.Contains(novicerider, cfg.Novice) {
 			tot.NumNovices++
+			ebym.NumNovice++
 		}
 		if strings.Contains(novicepillion, cfg.Novice) {
 			tot.NumNovices++
 		}
 		if RiderIBA != "" {
 			tot.NumIBAMembers++
+			ebym.NumIBA++
 		}
 		if PillionIBA != "" {
 			tot.NumIBAMembers++
+		}
+
+		ok = false
+		for i := 0; i < len(tot.EntriesByPeriod); i++ {
+			if tot.EntriesByPeriod[i].Month == ebym.Month {
+				ok = true
+				tot.EntriesByPeriod[i].Total += ebym.Total
+				tot.EntriesByPeriod[i].NumIBA += ebym.NumIBA
+				tot.EntriesByPeriod[i].NumNovice += ebym.NumNovice
+			}
+		}
+		if !ok {
+			tot.EntriesByPeriod = append(tot.EntriesByPeriod, ebym)
 		}
 
 		if cfg.Rally == "rblr" {
@@ -805,10 +824,98 @@ func setTabFormats() {
 
 }
 
+func reportEntriesByPeriod() {
+
+	sort.Slice(tot.EntriesByPeriod, func(i, j int) bool { return tot.EntriesByPeriod[i].Month > tot.EntriesByPeriod[j].Month })
+
+	//fmt.Printf("%v\n", tot.EntriesByPeriod)
+
+	xl.SetColWidth(totsheet, "B", "B", 5)
+	xl.SetColWidth(totsheet, "C", "D", 2)
+	xl.SetColWidth(totsheet, "F", "F", 5)
+	xl.SetColWidth(totsheet, "G", "G", 2)
+	xl.SetColWidth(totsheet, "I", "K", 5)
+
+	xl.SetCellValue(totsheet, "I2", "Novices")
+	xl.SetCellValue(totsheet, "J2", "IBA members")
+	xl.SetCellValue(totsheet, "K2", "All entries")
+	row := 3
+	for _, p := range tot.EntriesByPeriod {
+		srow := strconv.Itoa(row)
+		md := strings.Split(p.Month, "-")
+		mth := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}[intval(md[0])-1]
+		xl.SetCellValue(totsheet, "H"+srow, mth+" "+md[1])
+		xl.SetCellValue(totsheet, "K"+srow, p.Total)
+		xl.SetCellValue(totsheet, "J"+srow, p.NumIBA)
+		xl.SetCellValue(totsheet, "I"+srow, p.NumNovice)
+		row++
+	}
+
+	fmtx := `{"type":"bar","series": [`
+
+	xrow := strconv.Itoa(row - 1)
+	row = 3
+	if true {
+		for i := 0; i < 3; i++ {
+			//srow := strconv.Itoa(row)
+			if i > 0 {
+				fmtx += `,
+			`
+			}
+			ll := "IJK"[i : i+1]
+			fmtx += `{"name":"` + totsheet + `!$` + ll + `$2",	"categories":"` + totsheet + `!$H$3:$H$` + xrow + `","values":"` + totsheet + `!` + ll + `3:` + ll + xrow + `"}`
+			row++
+		}
+	}
+	fmtx += `],
+	"format":
+	{
+		"x_scale": 1.0,
+		"y_scale": 0.8,
+		"x_offset": 15,
+		"y_offset": 10,
+		"print_obj": true,
+		"lock_aspect_ratio": false,
+		"locked": false
+	},
+	"legend":
+	{
+		"position": "right",
+		"show_legend_key": false
+	},
+	"title":
+	{
+		"name": "New signups by week"
+	},
+	"plotarea":
+	{
+		"show_bubble_size": true,
+		"show_cat_name": false,
+		"show_leader_lines": false,
+		"show_percent": true,
+		"show_series_name": true,
+		"show_val": true
+	},
+	"show_blanks_as": "zero"
+
+	}`
+
+	err := xl.AddChart(totsheet, "L2", fmtx)
+	if err != nil {
+		fmt.Printf("OMG: %v\n%v\n", err, fmtx)
+	}
+
+	xl.SetColVisible(totsheet, "H:K", false)
+}
+
 func writeTotals() {
+
+	reportEntriesByPeriod()
+
 	// Write out totals
 	xl.SetColWidth(totsheet, "A", "A", 30)
 	xl.SetColWidth(totsheet, "E", "E", 15)
+
 	xl.SetCellStyle(totsheet, "A3", "A16", styleRJ)
 	xl.SetCellStyle(totsheet, "E3", "E16", styleRJ)
 	for i := 3; i <= 16; i++ {

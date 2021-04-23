@@ -63,11 +63,14 @@ type Config struct {
 func NewConfig(configPath string) (*Config, error) {
 	// Create config structure
 	config := &Config{}
+	config.Rally = "test"
+	config.Novice = "novice"
+	config.EntrantOrder = "upper(RiderLast),upper(RiderName)"
 
 	// Open config file
 	file, err := os.Open(configPath)
 	if err != nil {
-		return nil, err
+		return config, err
 	}
 	defer file.Close()
 
@@ -76,7 +79,7 @@ func NewConfig(configPath string) (*Config, error) {
 
 	// Start YAML decoding from file
 	if err := d.Decode(&config); err != nil {
-		return nil, err
+		return config, err
 	}
 
 	return config, nil
