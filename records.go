@@ -109,8 +109,11 @@ func Entrant2Strings(e Entrant) []string {
 
 func ReportingPeriod(isodate string) string {
 	t, _ := time.Parse("2006-01-02 15:04:05", isodate)
-	for t.Weekday() != time.Monday && t.Day() > 1 {
-		t = t.AddDate(0, 0, -1)
+	if cfg.ReportWeekly {
+		for t.Weekday() != time.Monday && t.Day() > 1 {
+			t = t.AddDate(0, 0, -1)
+		}
+		return t.Format("01-02")
 	}
-	return t.Format("01-02")
+	return t.Format("01-")
 }

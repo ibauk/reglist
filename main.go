@@ -38,7 +38,7 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
 
-const apptitle = "IBAUK Reglist v1.2.0\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.3.0\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -74,7 +74,7 @@ ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnul
 ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,''),
 ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
 ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,''),
-ifnull(Date_Created,'')`
+ifnull(Date_Created,''),ifnull(Withdrawn,'')`
 
 const sqlx_rally = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -86,7 +86,7 @@ FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnull(Registration,''),
 ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
 ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,''),
-ifnull(Date_Created,'')`
+ifnull(Date_Created,''),ifnull(Withdrawn,'')`
 
 var sqlx string
 
@@ -473,6 +473,8 @@ func mainloop() {
 		var feesdue int = 0
 		var odocounts string
 		var isFOC bool = false
+		var withdrawn string
+		var isWithdrawn bool = false
 
 		// Entrant record for export
 		var e Entrant
@@ -488,19 +490,20 @@ func mainloop() {
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
 				&odocounts, &e.BikeReg, &miles2squires, &freecamping,
 				&e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate)
+				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate, &withdrawn)
 		} else {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &T1, &T2,
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion, &odocounts,
 				&e.BikeReg, &e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate)
+				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate, &withdrawn)
 		}
 		if err2 != nil {
 			log.Fatal(err2)
 		}
 
 		isFOC = Paid == "Refunded"
+		isWithdrawn = withdrawn == "Withdrawn"
 
 		Bike = properBike(Bike)
 		Make, Model = extractMakeModel(Bike)
@@ -508,6 +511,9 @@ func mainloop() {
 		e.Entrantid = strconv.Itoa(entrantid) // All adjustments already applied
 		e.RiderFirst = properName(RiderFirst)
 		e.RiderLast = properName(RiderLast)
+		if isWithdrawn {
+			e.RiderLast += " (PROV)"
+		}
 		e.RiderIBA = fmtIBA(RiderIBA)
 		e.RiderNovice = fmtNoviceYN(novicerider)
 		e.PillionFirst = properName(PillionFirst)
@@ -541,10 +547,10 @@ func mainloop() {
 		e.Miles2Squires = strconv.Itoa(intval(miles2squires))
 		e.Bike = Bike
 
-		RiderFirst = properName(RiderFirst)
-		RiderLast = properName(RiderLast)
-		PillionFirst = properName(PillionFirst)
-		PillionLast = properName(PillionLast)
+		RiderFirst = properName(e.RiderFirst)
+		RiderLast = properName(e.RiderLast)
+		PillionFirst = properName(e.PillionFirst)
+		PillionLast = properName(e.PillionLast)
 
 		//fmt.Printf("%v (%v) %v (%v)\n", RiderFirst, T1, RiderLast, T2)
 		if isFOC {
@@ -792,7 +798,7 @@ func mainloop() {
 
 		//fmt.Printf("%v\n", Entrant2Strings(e))
 
-		if exportingCSV {
+		if exportingCSV && !isWithdrawn {
 			csvW.Write(Entrant2Strings(e))
 		}
 
@@ -826,12 +832,14 @@ func setTabFormats() {
 
 func reportEntriesByPeriod() {
 
+	//xl.SetCellValue(totsheet, "A16", " ") // Mark the bottom row just in case
+
 	sort.Slice(tot.EntriesByPeriod, func(i, j int) bool { return tot.EntriesByPeriod[i].Month > tot.EntriesByPeriod[j].Month })
 
 	//fmt.Printf("%v\n", tot.EntriesByPeriod)
 
-	xl.SetColWidth(totsheet, "B", "B", 5)
-	xl.SetColWidth(totsheet, "C", "D", 2)
+	xl.SetColWidth(totsheet, "B", "B", 7)
+	xl.SetColWidth(totsheet, "C", "D", 1)
 	xl.SetColWidth(totsheet, "F", "F", 5)
 	xl.SetColWidth(totsheet, "G", "G", 2)
 	xl.SetColWidth(totsheet, "I", "K", 5)
@@ -867,15 +875,22 @@ func reportEntriesByPeriod() {
 			row++
 		}
 	}
+	var reportingperiod string
+	if cfg.ReportWeekly {
+		reportingperiod = "week"
+	} else {
+		reportingperiod = "month"
+	}
+
 	fmtx += `],
 	"format":
 	{
 		"x_scale": 1.0,
-		"y_scale": 0.8,
+		"y_scale": 1.0,
 		"x_offset": 15,
 		"y_offset": 10,
 		"print_obj": true,
-		"lock_aspect_ratio": false,
+		"lock_aspect_ratio": true,
 		"locked": false
 	},
 	"legend":
@@ -885,7 +900,7 @@ func reportEntriesByPeriod() {
 	},
 	"title":
 	{
-		"name": "New signups by week"
+		"name": "New signups by ` + reportingperiod + `"
 	},
 	"plotarea":
 	{
@@ -1581,7 +1596,7 @@ func initStyles() {
 				"shrink_to_fit": true,
 				"text_rotation": 0,
 				"vertical": "",
-				"wrap_text": true
+				"wrap_text": false
 			},
 			"border": [
 				{
@@ -1613,7 +1628,7 @@ func initStyles() {
 				"shrink_to_fit": true,
 				"text_rotation": 0,
 				"vertical": "",
-				"wrap_text": true
+				"wrap_text": false
 			},
 			"border": [
 				{
@@ -1634,7 +1649,7 @@ func initStyles() {
 				"shrink_to_fit": true,
 				"text_rotation": 0,
 				"vertical": "",
-				"wrap_text": true
+				"wrap_text": false
 			},
 			"border": [
 				{
@@ -1655,7 +1670,7 @@ func initStyles() {
 				"shrink_to_fit": true,
 				"text_rotation": 0,
 				"vertical": "",
-				"wrap_text": true
+				"wrap_text": false
 			}
 		}`)
 

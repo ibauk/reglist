@@ -13,7 +13,7 @@ afields: ["EntryId","Date_Created","Created_By","Date_Updated","Updated_By",
 					"Tshirt1","Tshirt2",
 					"WhichRoute",
 					"FreeCamping","MilestravelledToSquires",
-					"Admin_markers","Sponsorshipmoney",
+					"Withdrawn","Sponsorshipmoney",
 					"Patches","Cash",
 					"PaymentStatus","PaymentTotal","Payment_Currency","Payment_Confirmation","Payment_Merchant"]
 rfields: ["EntryId","RiderName","RiderLast","RiderIBANumber",
@@ -28,7 +28,7 @@ rfields: ["EntryId","RiderName","RiderLast","RiderIBANumber",
 					"Tshirt1","Tshirt2",
 					"WhichRoute",
 					"FreeCamping","MilestravelledToSquires",
-					"Admin_markers","Sponsorshipmoney",
+					"Withdrawn","Sponsorshipmoney",
 					"Patches","Cash",
 					"PaymentStatus","PaymentTotal","Payment_Currency","Payment_Confirmation","Payment_Merchant",
 					"Date_Created","Created_By","Date_Updated","Updated_By",
@@ -44,4 +44,5 @@ fundsonday: Cheque @ Squires
 novice: novice
 add2entrantid: 0
 entrantorder: upper(RiderLast),upper(RiderName)
+weekly: true
 
