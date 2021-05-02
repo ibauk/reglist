@@ -38,7 +38,7 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
 
-const apptitle = "IBAUK Reglist v1.3.0\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.4.0\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -54,10 +54,14 @@ var overview_patch_column, shop_patch_column string
 
 var dbfieldsx string
 
-var overviewsheet string = "Sheet1" // Renamed on init
+var overviewsheet string = "Overview"
 var noksheet string = "Contacts"
 var paysheet string = "Money"
-var totsheet string = "Stats"
+
+// The Stats sheet (totsheet) needs to be first as otherwise Google Sheets
+// doesn't show the chart. Much diagnostic phaffery has led me to this
+// workaround rather than actually diagnosing the fault so shoot me.
+var totsheet string = "Sheet1" // Renamed on init
 var chksheet string = "Carpark"
 var regsheet string = "Registration"
 var shopsheet string = "Shop"
@@ -328,6 +332,8 @@ func initSpreadsheet() {
 
 	initStyles()
 	// First sheet is called Sheet1
+	formatSheet(totsheet, false)
+	xl.NewSheet(overviewsheet)
 	formatSheet(overviewsheet, false)
 	xl.NewSheet(regsheet)
 	formatSheet(regsheet, false)
@@ -339,12 +345,10 @@ func initSpreadsheet() {
 	}
 	xl.NewSheet(paysheet)
 	formatSheet(paysheet, false)
-	xl.NewSheet(totsheet)
-	formatSheet(totsheet, false)
 	xl.NewSheet(chksheet)
 	formatSheet(chksheet, false)
 
-	renameSheet(&overviewsheet, "Overview")
+	renameSheet(&totsheet, "Stats")
 
 	// Set heading styles
 	xl.SetCellStyle(overviewsheet, "A1", overview_patch_column+"1", styleH2)
@@ -839,7 +843,8 @@ func reportEntriesByPeriod() {
 	//fmt.Printf("%v\n", tot.EntriesByPeriod)
 
 	xl.SetColWidth(totsheet, "B", "B", 7)
-	xl.SetColWidth(totsheet, "C", "D", 1)
+	xl.SetColWidth(totsheet, "C", "C", 2)
+	xl.SetColVisible(totsheet, "D", false)
 	xl.SetColWidth(totsheet, "F", "F", 5)
 	xl.SetColWidth(totsheet, "G", "G", 2)
 	xl.SetColWidth(totsheet, "I", "K", 5)
