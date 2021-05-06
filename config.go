@@ -58,6 +58,7 @@ type Config struct {
 	Add2entrantid int      `yaml:"add2entrantid"`
 	EntrantOrder  string   `yaml:"entrantorder"`
 	ReportWeekly  bool     `yaml:"weekly"`
+	RenumberCSV   bool     `yaml:"renumber"`
 }
 
 // NewConfig returns a new decoded Config struct

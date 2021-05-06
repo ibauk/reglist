@@ -181,19 +181,30 @@ func properName(x string) string {
 func fixRiderNumbers() {
 
 	var old string
-	var new int
+	var new, newseq int
 	var mannum string
+	var withdrawn string
 
 	oldnew := make(map[string]int, 250) // More than enough
 
-	rows, err := db.Query("SELECT EntryId,ifnull(RiderNumber,'') FROM entrants;") // There is scope for renumber alphabetically if desired.
+	sqlx := "SELECT EntryId,ifnull(RiderNumber,''),ifnull(withdrawn,'') FROM entrants"
+	rows, err := db.Query(sqlx) // There is scope for renumber alphabetically if desired.
 	if err != nil {
 		log.Fatal(err)
 	}
 	for rows.Next() {
 
-		rows.Scan(&old, &mannum)
-		new = intval(old) + cfg.Add2entrantid
+		rows.Scan(&old, &mannum, &withdrawn)
+		if withdrawn == "Withdrawn" {
+			oldnew[old] = intval(old)
+			continue
+		}
+		if cfg.RenumberCSV {
+			newseq++
+			new = newseq + cfg.Add2entrantid
+		} else {
+			new = intval(old) + cfg.Add2entrantid
+		}
 		if intval(mannum) > 0 {
 			new = intval(mannum)
 		}
@@ -517,6 +528,7 @@ func mainloop() {
 		e.RiderLast = properName(RiderLast)
 		if isWithdrawn {
 			e.RiderLast += " (PROV)"
+			continue
 		}
 		e.RiderIBA = fmtIBA(RiderIBA)
 		e.RiderNovice = fmtNoviceYN(novicerider)
