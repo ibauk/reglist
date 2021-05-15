@@ -38,7 +38,7 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
 
-const apptitle = "IBAUK Reglist v1.4.0\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.5.0\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -78,7 +78,7 @@ ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnul
 ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,''),
 ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
 ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,''),
-ifnull(Date_Created,''),ifnull(Withdrawn,'')`
+ifnull(Date_Created,''),ifnull(Withdrawn,''),ifnull(HasPillion,'')`
 
 const sqlx_rally = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
@@ -90,7 +90,7 @@ FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnull(Registration,''),
 ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
 ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,''),
-ifnull(Date_Created,''),ifnull(Withdrawn,'')`
+ifnull(Date_Created,''),ifnull(Withdrawn,''),ifnull(HasPillion,'')`
 
 var sqlx string
 
@@ -491,6 +491,8 @@ func mainloop() {
 		var withdrawn string
 		var isWithdrawn bool = false
 		var isCancelled bool = false
+		var hasPillionVal string
+		var hasPillion bool = false
 
 		// Entrant record for export
 		var e Entrant
@@ -506,13 +508,13 @@ func mainloop() {
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
 				&odocounts, &e.BikeReg, &miles2squires, &freecamping,
 				&e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate, &withdrawn)
+				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate, &withdrawn, &hasPillionVal)
 		} else {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &T1, &T2,
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion, &odocounts,
 				&e.BikeReg, &e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate, &withdrawn)
+				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate, &withdrawn, &hasPillionVal)
 		}
 		if err2 != nil {
 			log.Fatal(err2)
@@ -521,6 +523,9 @@ func mainloop() {
 		isFOC = Paid == "Refunded"
 		isCancelled = Paid == "Cancelled"
 		isWithdrawn = withdrawn == "Withdrawn"
+		hasPillion = strings.ToLower(hasPillionVal) != "no pillion" && hasPillionVal != ""
+
+		//fmt.Printf("[ %v ] = %v \n", hasPillionVal, hasPillion)
 
 		Bike = properBike(Bike)
 		Make, Model = extractMakeModel(Bike)
@@ -535,7 +540,11 @@ func mainloop() {
 		e.RiderIBA = fmtIBA(RiderIBA)
 		e.RiderNovice = fmtNoviceYN(novicerider)
 		e.PillionFirst = properName(PillionFirst)
-		e.PillionLast = properName(PillionLast)
+		if hasPillion && PillionLast == "" {
+			e.PillionLast = properName(RiderLast)
+		} else {
+			e.PillionLast = properName(PillionLast)
+		}
 		e.PillionIBA = fmtIBA(PillionIBA)
 		e.PillionNovice = fmtNoviceYN(novicepillion)
 		e.BikeMake = Make
