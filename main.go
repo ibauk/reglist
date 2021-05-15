@@ -490,6 +490,7 @@ func mainloop() {
 		var isFOC bool = false
 		var withdrawn string
 		var isWithdrawn bool = false
+		var isCancelled bool = false
 
 		// Entrant record for export
 		var e Entrant
@@ -518,6 +519,7 @@ func mainloop() {
 		}
 
 		isFOC = Paid == "Refunded"
+		isCancelled = Paid == "Cancelled"
 		isWithdrawn = withdrawn == "Withdrawn"
 
 		Bike = properBike(Bike)
@@ -572,82 +574,89 @@ func mainloop() {
 		if isFOC {
 			fmt.Printf("Rider %v %v has Paid=%v and is therefore FOC\n", e.RiderFirst, e.RiderLast, Paid)
 		}
-
-		for i := 0; i < num_tshirt_sizes; i++ {
-			if cfg.Tshirts[i] == T1 {
-				tshirts[i]++
-				totTShirts[i]++
-				tot.NumTshirtsBySize[i]++
-				tot.NumTshirts++
-			}
-			if cfg.Tshirts[i] == T2 {
-				tshirts[i]++
-				totTShirts[i]++
-				tot.NumTshirtsBySize[i]++
-				tot.NumTshirts++
-			}
-		}
-		totx.srowx = strconv.Itoa(totx.srow)
-
-		// Count the bikes by Make
-		var ok bool = true
-		for i := 0; i < len(tot.Bikes); i++ {
-			if tot.Bikes[i].Make == Make {
-				tot.Bikes[i].Num++
-				ok = false
-			}
-		}
-		if ok { // Add a new make tothe list
-			bmt := Bikemake{Make, 1}
-			tot.Bikes = append(tot.Bikes, bmt)
-		}
-
-		ebym := Entrystats{ReportingPeriod(e.EnteredDate), 1, 0, 0}
-
-		tot.NumRiders++
-
-		if strings.Contains(novicerider, cfg.Novice) {
-			tot.NumNovices++
-			ebym.NumNovice++
-		}
-		if strings.Contains(novicepillion, cfg.Novice) {
-			tot.NumNovices++
-		}
-		if RiderIBA != "" {
-			tot.NumIBAMembers++
-			ebym.NumIBA++
-		}
-		if PillionIBA != "" {
-			tot.NumIBAMembers++
-		}
-
-		ok = false
-		for i := 0; i < len(tot.EntriesByPeriod); i++ {
-			if tot.EntriesByPeriod[i].Month == ebym.Month {
-				ok = true
-				tot.EntriesByPeriod[i].Total += ebym.Total
-				tot.EntriesByPeriod[i].NumIBA += ebym.NumIBA
-				tot.EntriesByPeriod[i].NumNovice += ebym.NumNovice
-			}
-		}
-		if !ok {
-			tot.EntriesByPeriod = append(tot.EntriesByPeriod, ebym)
-		}
-
-		if cfg.Rally == "rblr" {
-			if intval(miles2squires) < tot.LoMiles2Squires {
-				tot.LoMiles2Squires = intval(miles2squires)
-			}
-			if intval(miles2squires) > tot.HiMiles2Squires {
-				tot.HiMiles2Squires = intval(miles2squires)
-			}
-			if freecamping == "Yes" {
-				tot.NumCamping++
-			}
+		if isCancelled {
+			fmt.Printf("Rider %v %v has Paid=%v\n", e.RiderFirst, e.RiderLast, Paid)
 		}
 
 		npatches := intval(Patches)
-		tot.NumPatches += npatches
+		totx.srowx = strconv.Itoa(totx.srow)
+
+		if !isCancelled {
+			for i := 0; i < num_tshirt_sizes; i++ {
+				if cfg.Tshirts[i] == T1 {
+					tshirts[i]++
+					totTShirts[i]++
+					tot.NumTshirtsBySize[i]++
+					tot.NumTshirts++
+				}
+				if cfg.Tshirts[i] == T2 {
+					tshirts[i]++
+					totTShirts[i]++
+					tot.NumTshirtsBySize[i]++
+					tot.NumTshirts++
+				}
+			}
+
+			// Count the bikes by Make
+			var ok bool = true
+			for i := 0; i < len(tot.Bikes); i++ {
+				if tot.Bikes[i].Make == Make {
+					tot.Bikes[i].Num++
+					ok = false
+				}
+			}
+			if ok { // Add a new make tothe list
+				bmt := Bikemake{Make, 1}
+				tot.Bikes = append(tot.Bikes, bmt)
+			}
+
+			ebym := Entrystats{ReportingPeriod(e.EnteredDate), 1, 0, 0}
+
+			tot.NumRiders++
+
+			if strings.Contains(novicerider, cfg.Novice) {
+				tot.NumNovices++
+				ebym.NumNovice++
+			}
+			if strings.Contains(novicepillion, cfg.Novice) {
+				tot.NumNovices++
+			}
+			if RiderIBA != "" {
+				tot.NumIBAMembers++
+				ebym.NumIBA++
+			}
+			if PillionIBA != "" {
+				tot.NumIBAMembers++
+			}
+
+			ok = false
+			for i := 0; i < len(tot.EntriesByPeriod); i++ {
+				if tot.EntriesByPeriod[i].Month == ebym.Month {
+					ok = true
+					tot.EntriesByPeriod[i].Total += ebym.Total
+					tot.EntriesByPeriod[i].NumIBA += ebym.NumIBA
+					tot.EntriesByPeriod[i].NumNovice += ebym.NumNovice
+				}
+			}
+			if !ok {
+				tot.EntriesByPeriod = append(tot.EntriesByPeriod, ebym)
+			}
+
+			if cfg.Rally == "rblr" {
+				if intval(miles2squires) < tot.LoMiles2Squires {
+					tot.LoMiles2Squires = intval(miles2squires)
+				}
+				if intval(miles2squires) > tot.HiMiles2Squires {
+					tot.HiMiles2Squires = intval(miles2squires)
+				}
+				if freecamping == "Yes" {
+					tot.NumCamping++
+				}
+			}
+
+			tot.NumPatches += npatches
+
+		} // !isCancelled
 
 		// Entrant IDs
 		xl.SetCellInt(overviewsheet, "A"+totx.srowx, entrantid)
@@ -679,29 +688,47 @@ func mainloop() {
 			xl.SetCellValue(chksheet, "F"+totx.srowx, "kms")
 		}
 
-		// Fees on Money tab
-		xl.SetCellInt(paysheet, "D"+totx.srowx, cfg.Riderfee) // Basic entry fee
-		feesdue += cfg.Riderfee
+		cancelledFees := 0
+
+		if !isCancelled {
+			// Fees on Money tab
+			xl.SetCellInt(paysheet, "D"+totx.srowx, cfg.Riderfee) // Basic entry fee
+			feesdue += cfg.Riderfee
+		} else {
+			cancelledFees += cfg.Riderfee
+		}
 
 		if PillionFirst != "" && PillionLast != "" {
-			xl.SetCellInt(paysheet, "E"+totx.srowx, cfg.Pillionfee)
-			tot.NumPillions++
-			feesdue += cfg.Pillionfee
+			if !isCancelled {
+				xl.SetCellInt(paysheet, "E"+totx.srowx, cfg.Pillionfee)
+				tot.NumPillions++
+				feesdue += cfg.Pillionfee
+			} else {
+				cancelledFees += cfg.Pillionfee
+			}
 		}
 		var nt int = 0
 		for i := 0; i < len(tshirts); i++ {
 			nt += tshirts[i]
 		}
 		if nt > 0 {
-			xl.SetCellInt(paysheet, "F"+totx.srowx, cfg.Tshirtcost*nt)
-			feesdue += nt * cfg.Tshirtcost
+			if !isCancelled {
+				xl.SetCellInt(paysheet, "F"+totx.srowx, cfg.Tshirtcost*nt)
+				feesdue += nt * cfg.Tshirtcost
+			} else {
+				cancelledFees += nt * cfg.Tshirtcost
+			}
 		}
 
 		if cfg.Patchavail && npatches > 0 {
-			xl.SetCellInt(overviewsheet, "X"+totx.srowx, npatches) // Overview tab
-			xl.SetCellInt(paysheet, "G"+totx.srowx, npatches*cfg.Patchcost)
-			xl.SetCellInt(shopsheet, shop_patch_column+totx.srowx, npatches) // Shop tab
-			feesdue += npatches * cfg.Patchcost
+			if !isCancelled {
+				xl.SetCellInt(overviewsheet, "X"+totx.srowx, npatches) // Overview tab
+				xl.SetCellInt(paysheet, "G"+totx.srowx, npatches*cfg.Patchcost)
+				xl.SetCellInt(shopsheet, shop_patch_column+totx.srowx, npatches) // Shop tab
+				feesdue += npatches * cfg.Patchcost
+			} else {
+				cancelledFees += npatches * cfg.Patchcost
+			}
 		}
 
 		intCash := intval(Cash)
@@ -712,13 +739,13 @@ func mainloop() {
 			PayTot = strconv.Itoa(feesdue - intCash)
 		}
 
-		Sponsorship := 0
+		Sponsorship := cancelledFees
 
 		tot.TotMoneyMainPaypal += intval(PayTot)
 
 		if cfg.Sponsorship {
 			// This extracts a number if present from either "Include ..." or "I'll bring ..."
-			Sponsorship = intval(Sponsor) // "50"
+			Sponsorship += intval(Sponsor) // "50"
 
 			tot.TotMoneySponsor += Sponsorship
 
@@ -775,12 +802,12 @@ func mainloop() {
 
 		xl.SetCellValue(overviewsheet, "K"+totx.srowx, Miles)
 
-		if Camp == "Yes" && cfg.Rally == "rblr" {
+		if Camp == "Yes" && cfg.Rally == "rblr" && !isCancelled {
 			xl.SetCellInt(overviewsheet, "L"+totx.srowx, 1)
 		}
 		var cols string = "MNOPQR"
 		var col int = 0
-		if cfg.Rally == "rblr" {
+		if cfg.Rally == "rblr" && !isCancelled {
 			col = strings.Index("ABCDEF", string(Route[0])) // Which route is being ridden. Compare the A -, B -, ...
 			xl.SetCellInt(overviewsheet, string(cols[col])+totx.srowx, 1)
 
