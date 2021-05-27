@@ -29,19 +29,27 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var rally *string = flag.String("cfg", "rblr", "Which rally is this (yml file)")
+var rally *string = flag.String("cfg", "", "Which rally is this (yml file)")
 var csvName *string = flag.String("csv", "entrants.csv", "Path to CSV downloaded from Wufoo")
-var csvReport *bool = flag.Bool("rpt", false, "CSV downloaded from Wufoo report")
+var csvReport *bool = flag.Bool("rpt", true, "CSV is downloaded from Wufoo report")
+var csvAdmin *bool = flag.Bool("adm", false, "CSV is downloaded from Wufoo administrator page")
 var sqlName *string = flag.String("sql", "entrantdata.db", "Path to SQLite database")
 var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
-var safemode *bool = flag.Bool("safe", false, "Safe mode avoid formulas, no live updating")
+var safemode *bool = flag.Bool("safe", true, "Safe mode avoid formulas, no live updating")
+var livemode *bool = flag.Bool("live", false, "Self-updating, live mode")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
+var ridesdb *string = flag.String("rd", "ibaukrd.db", "Path of rides database for lookup")
+var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA members")
 
-const apptitle = "IBAUK Reglist v1.5.0\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.6.0\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
+
+// cancelsLoseOut determines whether entrants with Paid=Cancelled lose T-shirts, camping and patches
+// If so, they aren't counted and moneys paid are added to sponsorship
+const cancelsLoseOut = false
 
 const max_tshirt_sizes int = 10
 
@@ -94,7 +102,7 @@ ifnull(Date_Created,''),ifnull(Withdrawn,''),ifnull(HasPillion,'')`
 
 var sqlx string
 
-var styleH, styleH2, styleH2L, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleRJ, styleRJSmall int
+var styleH, styleH2, styleH2L, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleCancel, styleRJ, styleRJSmall int
 
 var cfg *Config
 var words *Words
@@ -273,17 +281,28 @@ func init() {
 	}
 	//fmt.Printf("%v\n\n", words)
 
+	if *rally == "" {
+		log.Fatal("You must specify the configuration file to use: -cfg rblr")
+	}
 	cfg, cfgerr = NewConfig(*rally + ".yml")
 	if cfgerr != nil {
 		log.Fatal(cfgerr)
 	}
+	if *csvAdmin {
+		*csvReport = false
+	}
 	if *csvReport {
 		dbfieldsx = fieldlistFromConfig(cfg.Rfields)
+		fmt.Printf("CSV downloaded from Wufoo report\n")
 	} else {
 		dbfieldsx = fieldlistFromConfig(cfg.Afields)
+		fmt.Printf("CSV downloaded from Wufoo Administrator page\n")
 	}
 
 	var sm string = "live"
+	if *livemode {
+		*safemode = false
+	}
 	if *safemode {
 		sm = "safe"
 	}
@@ -311,6 +330,25 @@ func init() {
 	db, err = sql.Open("sqlite3", *sqlName)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	*noLookup = *noLookup || *ridesdb == ""
+
+	if !*noLookup {
+		if _, err = os.Stat(*ridesdb); os.IsNotExist(err) {
+			*noLookup = true
+		} else {
+			_, err = db.Exec("ATTACH '" + *ridesdb + "' As rd")
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+
+	if *noLookup {
+		fmt.Printf("Automatic IBA member identification not running\n")
+	} else {
+		fmt.Printf("Unidentified IBA members looked up using %v\n", *ridesdb)
 	}
 
 	includeShopTab = len(cfg.Tshirts) > 0 || cfg.Patchavail
@@ -574,6 +612,10 @@ func mainloop() {
 		e.Miles2Squires = strconv.Itoa(intval(miles2squires))
 		e.Bike = Bike
 
+		if !*noLookup {
+			LookupIBANumbers(&e)
+		}
+
 		RiderFirst = properName(e.RiderFirst)
 		RiderLast = properName(e.RiderLast)
 		PillionFirst = properName(e.PillionFirst)
@@ -590,7 +632,9 @@ func mainloop() {
 		npatches := intval(Patches)
 		totx.srowx = strconv.Itoa(totx.srow)
 
-		if !isCancelled {
+		ebym := Entrystats{ReportingPeriod(e.EnteredDate), 1, 0, 0}
+
+		if !isCancelled || !cancelsLoseOut {
 			for i := 0; i < num_tshirt_sizes; i++ {
 				if cfg.Tshirts[i] == T1 {
 					tshirts[i]++
@@ -605,7 +649,8 @@ func mainloop() {
 					tot.NumTshirts++
 				}
 			}
-
+		}
+		if !isCancelled {
 			// Count the bikes by Make
 			var ok bool = true
 			for i := 0; i < len(tot.Bikes); i++ {
@@ -619,8 +664,6 @@ func mainloop() {
 				tot.Bikes = append(tot.Bikes, bmt)
 			}
 
-			ebym := Entrystats{ReportingPeriod(e.EnteredDate), 1, 0, 0}
-
 			tot.NumRiders++
 
 			if strings.Contains(novicerider, cfg.Novice) {
@@ -630,11 +673,11 @@ func mainloop() {
 			if strings.Contains(novicepillion, cfg.Novice) {
 				tot.NumNovices++
 			}
-			if RiderIBA != "" {
+			if e.RiderIBA != "" {
 				tot.NumIBAMembers++
 				ebym.NumIBA++
 			}
-			if PillionIBA != "" {
+			if e.PillionIBA != "" {
 				tot.NumIBAMembers++
 			}
 
@@ -651,6 +694,10 @@ func mainloop() {
 				tot.EntriesByPeriod = append(tot.EntriesByPeriod, ebym)
 			}
 
+		} // !isCancelled
+
+		if !isCancelled || !cancelsLoseOut {
+
 			if cfg.Rally == "rblr" {
 				if intval(miles2squires) < tot.LoMiles2Squires {
 					tot.LoMiles2Squires = intval(miles2squires)
@@ -665,7 +712,10 @@ func mainloop() {
 
 			tot.NumPatches += npatches
 
-		} // !isCancelled
+		}
+		if isCancelled {
+			tot.CancelledRows = append(tot.CancelledRows, totx.srow)
+		}
 
 		// Entrant IDs
 		xl.SetCellInt(overviewsheet, "A"+totx.srowx, entrantid)
@@ -692,7 +742,9 @@ func mainloop() {
 		}
 		xl.SetCellValue(chksheet, "B"+totx.srowx, RiderFirst)
 		xl.SetCellValue(chksheet, "C"+totx.srowx, RiderLast)
-		xl.SetCellValue(chksheet, "D"+totx.srowx, Bike)
+		if !isCancelled {
+			xl.SetCellValue(chksheet, "D"+totx.srowx, Bike)
+		}
 		if len(odocounts) > 0 && odocounts[0] == 'K' {
 			xl.SetCellValue(chksheet, "F"+totx.srowx, "kms")
 		}
@@ -721,7 +773,7 @@ func mainloop() {
 			nt += tshirts[i]
 		}
 		if nt > 0 {
-			if !isCancelled {
+			if !isCancelled || !cancelsLoseOut {
 				xl.SetCellInt(paysheet, "F"+totx.srowx, cfg.Tshirtcost*nt)
 				feesdue += nt * cfg.Tshirtcost
 			} else {
@@ -730,7 +782,7 @@ func mainloop() {
 		}
 
 		if cfg.Patchavail && npatches > 0 {
-			if !isCancelled {
+			if !isCancelled || !cancelsLoseOut {
 				xl.SetCellInt(overviewsheet, "X"+totx.srowx, npatches) // Overview tab
 				xl.SetCellInt(paysheet, "G"+totx.srowx, npatches*cfg.Patchcost)
 				xl.SetCellInt(shopsheet, shop_patch_column+totx.srowx, npatches) // Shop tab
@@ -788,30 +840,36 @@ func mainloop() {
 
 		// NOK List
 		xl.SetCellValue(noksheet, "D"+totx.srowx, Mobile)
-		xl.SetCellValue(noksheet, "E"+totx.srowx, properName(NokName))
-		xl.SetCellValue(noksheet, "F"+totx.srowx, properName(NokRelation))
-		xl.SetCellValue(noksheet, "G"+totx.srowx, NokNumber)
+		if !isCancelled {
+			xl.SetCellValue(noksheet, "E"+totx.srowx, properName(NokName))
+			xl.SetCellValue(noksheet, "F"+totx.srowx, properName(NokRelation))
+			xl.SetCellValue(noksheet, "G"+totx.srowx, NokNumber)
+		}
 		xl.SetCellValue(noksheet, "H"+totx.srowx, e.Email)
 
 		// Registration log
 		xl.SetCellValue(regsheet, "E"+totx.srowx, properName(PillionFirst)+" "+properName(PillionLast))
-		xl.SetCellValue(regsheet, "G"+totx.srowx, Make+" "+Model)
+		if !isCancelled {
+			xl.SetCellValue(regsheet, "G"+totx.srowx, Make+" "+Model)
+		}
 
 		// Overview
-		xl.SetCellValue(overviewsheet, "D"+totx.srowx, fmtIBA(RiderIBA))
+		xl.SetCellValue(overviewsheet, "D"+totx.srowx, fmtIBA(e.RiderIBA))
 
 		xl.SetCellValue(overviewsheet, "F"+totx.srowx, PillionFirst+" "+PillionLast)
 		if cfg.Rally != "rblr" {
 			xl.SetCellValue(overviewsheet, "E"+totx.srowx, fmtNovice(novicerider))
-			xl.SetCellValue(overviewsheet, "G"+totx.srowx, fmtIBA(PillionIBA))
+			xl.SetCellValue(overviewsheet, "G"+totx.srowx, fmtIBA(e.PillionIBA))
 			xl.SetCellValue(overviewsheet, "H"+totx.srowx, fmtNovice(novicepillion))
 		}
-		xl.SetCellValue(overviewsheet, "I"+totx.srowx, ShortMaker(Make))
-		xl.SetCellValue(overviewsheet, "J"+totx.srowx, Model)
+		if !isCancelled {
+			xl.SetCellValue(overviewsheet, "I"+totx.srowx, ShortMaker(Make))
+			xl.SetCellValue(overviewsheet, "J"+totx.srowx, Model)
+		}
 
 		xl.SetCellValue(overviewsheet, "K"+totx.srowx, Miles)
 
-		if Camp == "Yes" && cfg.Rally == "rblr" && !isCancelled {
+		if Camp == "Yes" && cfg.Rally == "rblr" && (!isCancelled || !cancelsLoseOut) {
 			xl.SetCellInt(overviewsheet, "L"+totx.srowx, 1)
 		}
 		var cols string = "MNOPQR"
@@ -850,11 +908,27 @@ func mainloop() {
 
 		//fmt.Printf("%v\n", Entrant2Strings(e))
 
-		if exportingCSV && !isWithdrawn {
+		if exportingCSV && !isWithdrawn && !isCancelled {
 			csvW.Write(Entrant2Strings(e))
 		}
 
 	} // End reading loop
+
+}
+
+func markCancelledEntrants() {
+	for _, r := range tot.CancelledRows {
+		rx := strconv.Itoa(r)
+		xl.SetCellStyle(overviewsheet, "A"+rx, "J"+rx, styleCancel)
+		xl.SetCellStyle(regsheet, "A"+rx, "J"+rx, styleCancel)
+		xl.SetCellStyle(noksheet, "A"+rx, "H"+rx, styleCancel)
+		if includeShopTab {
+			xl.SetCellStyle(shopsheet, "A"+rx, "I"+rx, styleCancel)
+		}
+		xl.SetCellStyle(paysheet, "A"+rx, "J"+rx, styleCancel)
+		xl.SetCellStyle(chksheet, "A"+rx, "H"+rx, styleCancel)
+
+	}
 
 }
 
@@ -880,6 +954,7 @@ func setTabFormats() {
 		setPagePane(shopsheet)
 	}
 
+	markCancelledEntrants()
 }
 
 func reportEntriesByPeriod() {
@@ -1565,6 +1640,12 @@ func markSpreadsheet() {
 }
 
 func initStyles() {
+
+	// styleCancel for highlighting cancelled entrants
+	styleCancel, _ = xl.NewStyle(&excelize.Style{
+		Alignment: &excelize.Alignment{Vertical: "center", Horizontal: "center"},
+		Fill:      excelize.Fill{Type: "pattern", Color: []string{"edeb57"}, Pattern: 1},
+	})
 
 	// Totals
 	styleT, _ = xl.NewStyle(`{	

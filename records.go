@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"reflect"
 	"time"
 )
@@ -36,6 +38,7 @@ type Totals struct {
 	TotMoneyCashPaypal int // Subsequent Paypal payments
 	Bikes              []Bikemake
 	EntriesByPeriod    []Entrystats
+	CancelledRows      []int
 }
 
 func NewTotals(numRoutes, numSizes, numBikes int) *Totals {
@@ -46,6 +49,7 @@ func NewTotals(numRoutes, numSizes, numBikes int) *Totals {
 	t.Bikes = make([]Bikemake, numBikes)
 	t.EntriesByPeriod = make([]Entrystats, 0)
 	t.LoMiles2Squires = 9999
+	t.CancelledRows = make([]int, 0)
 	return &t
 }
 
@@ -116,4 +120,40 @@ func ReportingPeriod(isodate string) string {
 		return t.Format("01-02")
 	}
 	return t.Format("01-")
+}
+
+func lookupIBA(first, last string) (string, string) {
+
+	var num, email string
+
+	sqlx := "SELECT IBA_Number, Email FROM rd.riders WHERE Rider_Name = '" + first + "' || ' ' || '" + last + "' AND IBA_Number <>'' COLLATE NOCASE"
+	//fmt.Printf("%v\n", sqlx)
+	rows, err := db.Query(sqlx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+	if rows.Next() {
+		rows.Scan(&num, &email)
+		return num, email
+	}
+	return "", ""
+}
+
+func LookupIBANumbers(e *Entrant) {
+
+	if e.RiderIBA == "" {
+		riba, remail := lookupIBA(e.RiderFirst, e.RiderLast)
+		if riba != "" {
+			fmt.Printf("Rider %v %v (%v) is IBA %v (%v)\n", e.RiderFirst, e.RiderLast, e.Email, riba, remail)
+			e.RiderIBA = riba
+		}
+	}
+	if e.PillionFirst != "" && e.PillionLast != "" && e.PillionIBA == "" {
+		piba, pemail := lookupIBA(e.PillionFirst, e.PillionLast)
+		if piba != "" {
+			fmt.Printf("Pillion %v %v (%v) is IBA %v (%v)\n", e.PillionFirst, e.PillionLast, "", piba, pemail)
+			e.PillionIBA = piba
+		}
+	}
 }

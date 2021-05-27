@@ -37,7 +37,7 @@ patchavail: false
 patchcost: 0
 sponsorship: false
 fundsonday: ''
-novice: rookie
+novice: novice
 add2entrantid: 0
 entrantorder: upper(RiderLast),upper(RiderName)
 
