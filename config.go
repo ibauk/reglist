@@ -11,6 +11,9 @@ type Words struct {
 	Propernames  bool     `yaml:"propercasenames"`
 	Specialnames []string `yaml:"specialnames"`
 	Bikewords    []string `yaml:"bikewords"`
+	DefaultBike  string   `yaml:"defaultbike"`
+	DefaultRE    string   `yaml:"defaultre"`
+	LiveDBURL    string   `yaml:"livedburl"`
 }
 
 // NewWords returns the word lists

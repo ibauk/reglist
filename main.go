@@ -39,10 +39,10 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", true, "Safe mode avoid formulas, no live updating")
 var livemode *bool = flag.Bool("live", false, "Self-updating, live mode")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
-var ridesdb *string = flag.String("rd", "ibaukrd.db", "Path of rides database for lookup")
+var ridesdb *string = flag.String("rd", "", "Path of rides database for lookup")
 var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA members")
 
-const apptitle = "IBAUK Reglist v1.6.0\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.7.0\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -122,6 +122,8 @@ var totx struct {
 	srow  int
 	srowx string
 }
+
+var lookupOnline bool
 
 func fieldlistFromConfig(cols []string) string {
 
@@ -304,14 +306,14 @@ func init() {
 		*safemode = false
 	}
 	if *safemode {
-		sm = "safe"
+		sm = "safe spreadsheet format"
 	}
 
 	if cfg.Rally == "rblr" {
-		fmt.Printf("Running in RBLR mode - %v\n", sm)
+		fmt.Printf("Running in RBLR mode, %v\n", sm)
 		sqlx = "SELECT " + sqlx_rblr + " FROM entrants ORDER BY " + cfg.EntrantOrder
 	} else {
-		fmt.Printf("Running in rally mode - %v\n", sm)
+		fmt.Printf("Running in rally mode, %v\n", sm)
 		sqlx = "SELECT " + sqlx_rally + " FROM entrants ORDER BY " + cfg.EntrantOrder
 	}
 
@@ -332,9 +334,11 @@ func init() {
 		log.Fatal(err)
 	}
 
-	*noLookup = *noLookup || *ridesdb == ""
+	lookupOnline = lookupOnlineAvail()
 
-	if !*noLookup {
+	*noLookup = *noLookup || (*ridesdb == "" && !lookupOnline)
+
+	if !*noLookup && *ridesdb != "" {
 		if _, err = os.Stat(*ridesdb); os.IsNotExist(err) {
 			*noLookup = true
 		} else {
@@ -342,11 +346,14 @@ func init() {
 			if err != nil {
 				log.Fatal(err)
 			}
+			lookupOnline = false
 		}
 	}
 
 	if *noLookup {
 		fmt.Printf("Automatic IBA member identification not running\n")
+	} else if *ridesdb == "" {
+		fmt.Printf("IBA members checked online\n")
 	} else {
 		fmt.Printf("Unidentified IBA members looked up using %v\n", *ridesdb)
 	}
@@ -566,7 +573,20 @@ func mainloop() {
 		//fmt.Printf("[ %v ] = %v \n", hasPillionVal, hasPillion)
 
 		Bike = properBike(Bike)
-		Make, Model = extractMakeModel(Bike)
+		if words.DefaultRE != "" {
+			re := regexp.MustCompile(words.DefaultRE)
+			if re.MatchString(Bike) {
+				Make = words.DefaultBike
+				Model = ""
+			} else {
+				Make, Model = extractMakeModel(Bike)
+			}
+		} else {
+			Make, Model = extractMakeModel(Bike)
+		}
+		if Make != words.DefaultBike && Model == "" {
+			Model = words.DefaultBike
+		}
 
 		e.Entrantid = strconv.Itoa(entrantid) // All adjustments already applied
 		e.RiderFirst = properName(RiderFirst)
@@ -627,6 +647,16 @@ func mainloop() {
 		}
 		if isCancelled {
 			fmt.Printf("Rider %v %v has Paid=%v\n", e.RiderFirst, e.RiderLast, Paid)
+		}
+
+		if e.RiderFirst+" "+e.RiderLast == e.NokName {
+			fmt.Printf("Rider %v is the emergency contact (%v)\n", e.NokName, e.NokRelation)
+		} else if e.PillionFirst+" "+e.PillionLast == e.NokName {
+			fmt.Printf("Pillion %v %v is the emergency contact (%v)\n", e.PillionFirst, e.PillionLast, e.NokRelation)
+		}
+
+		if strings.ReplaceAll(e.Phone, " ", "") == strings.ReplaceAll(e.NokPhone, " ", "") {
+			fmt.Printf("Rider %v %v has the same mobile as emergency contact %v\n", e.RiderFirst, e.RiderLast, e.Phone)
 		}
 
 		npatches := intval(Patches)

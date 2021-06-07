@@ -1,9 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -140,17 +144,135 @@ func lookupIBA(first, last string) (string, string) {
 	return "", ""
 }
 
+func lookupIBAWeb(first, last string) (string, string) {
+
+	type LookupResponse struct {
+		Iba   string
+		Sname string
+		Email string
+	}
+	var lresp LookupResponse
+	var client http.Client
+
+	url := "https://ironbutt.co.uk/rd/lookup.php?f=" + first + "&l=" + last
+
+	resp, err := client.Get(url)
+	if err != nil {
+		*noLookup = true
+		fmt.Printf("*** Can't access online members database\n")
+		return "", ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			*noLookup = true
+			fmt.Printf("*** Can't access online members database\n")
+			return "", ""
+		}
+		//bodyString := string(bodyBytes)
+		json.Unmarshal(bodyBytes, &lresp)
+		//fmt.Printf("%v\n", bodyString)
+	}
+	return lresp.Iba, lresp.Email
+}
+
+func lookupIBAMember(iba string) (string, string) {
+
+	var fname, sname, email string
+
+	sqlx := "SELECT Rider_Name, Email FROM rd.riders WHERE IBA_Number = '" + iba + "'"
+	//fmt.Printf("%v\n", sqlx)
+	rows, err := db.Query(sqlx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+	if rows.Next() {
+		rows.Scan(&fname, &email)
+		nx := strings.Split(fname, " ")
+		ix := len(nx) - 1
+		sname = nx[ix]
+		return sname, email
+	}
+	return "", ""
+}
+
+func lookupOnlineAvail() bool {
+
+	var client http.Client
+	url := words.LiveDBURL
+	resp, err := client.Get(url)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	return true
+}
+
+func lookupIBAMemberWeb(iba string) (string, string) {
+
+	type LookupResponse struct {
+		Iba   string
+		Sname string
+		Email string
+	}
+	var lresp LookupResponse
+	var client http.Client
+
+	url := "https://ironbutt.co.uk/rd/lookup.php?i=" + iba
+
+	resp, err := client.Get(url)
+	if err != nil {
+		*noLookup = true
+		fmt.Printf("*** Can't access online members database\n")
+		return "", ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			*noLookup = true
+			fmt.Printf("*** Can't access online members database\n")
+			return "", ""
+		}
+		//bodyString := string(bodyBytes)
+		json.Unmarshal(bodyBytes, &lresp)
+		//fmt.Printf("%v\n", bodyString)
+	}
+	return lresp.Sname, lresp.Email
+
+}
+
 func LookupIBANumbers(e *Entrant) {
 
+	var riba, remail, sname, piba, pemail string
+
 	if e.RiderIBA == "" {
-		riba, remail := lookupIBA(e.RiderFirst, e.RiderLast)
+		if lookupOnline {
+			riba, remail = lookupIBAWeb(e.RiderFirst, e.RiderLast)
+		} else {
+			riba, remail = lookupIBA(e.RiderFirst, e.RiderLast)
+		}
 		if riba != "" {
 			fmt.Printf("Rider %v %v (%v) is IBA %v (%v)\n", e.RiderFirst, e.RiderLast, e.Email, riba, remail)
 			e.RiderIBA = riba
 		}
+	} else {
+		if lookupOnline {
+			sname, remail = lookupIBAMemberWeb(e.RiderIBA)
+		} else {
+			sname, remail = lookupIBAMember(e.RiderIBA)
+		}
+		if !strings.EqualFold(sname, e.RiderLast) {
+			fmt.Printf("Rider %v %v, IBA %v doesn't match %v (%v)\n", e.RiderFirst, e.RiderLast, e.RiderIBA, sname, remail)
+		}
 	}
 	if e.PillionFirst != "" && e.PillionLast != "" && e.PillionIBA == "" {
-		piba, pemail := lookupIBA(e.PillionFirst, e.PillionLast)
+		piba, pemail = lookupIBAWeb(e.PillionFirst, e.PillionLast)
 		if piba != "" {
 			fmt.Printf("Pillion %v %v (%v) is IBA %v (%v)\n", e.PillionFirst, e.PillionLast, "", piba, pemail)
 			e.PillionIBA = piba
