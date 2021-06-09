@@ -42,7 +42,7 @@ var expReport *string = flag.String("exp", "", "Path to output standard format C
 var ridesdb *string = flag.String("rd", "", "Path of rides database for lookup")
 var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA members")
 
-const apptitle = "IBAUK Reglist v1.7.0\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.7.1\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -538,6 +538,9 @@ func mainloop() {
 		var isCancelled bool = false
 		var hasPillionVal string
 		var hasPillion bool = false
+		var NokRiderClash bool = false
+		var NokPillionClash bool = false
+		var NokMobileClash bool = false
 
 		// Entrant record for export
 		var e Entrant
@@ -651,12 +654,15 @@ func mainloop() {
 
 		if e.RiderFirst+" "+e.RiderLast == e.NokName {
 			fmt.Printf("Rider %v is the emergency contact (%v)\n", e.NokName, e.NokRelation)
+			NokRiderClash = true
 		} else if e.PillionFirst+" "+e.PillionLast == e.NokName {
 			fmt.Printf("Pillion %v %v is the emergency contact (%v)\n", e.PillionFirst, e.PillionLast, e.NokRelation)
+			NokPillionClash = true
 		}
 
 		if strings.ReplaceAll(e.Phone, " ", "") == strings.ReplaceAll(e.NokPhone, " ", "") {
 			fmt.Printf("Rider %v %v has the same mobile as emergency contact %v\n", e.RiderFirst, e.RiderLast, e.Phone)
+			NokMobileClash = true
 		}
 
 		npatches := intval(Patches)
@@ -870,10 +876,18 @@ func mainloop() {
 
 		// NOK List
 		xl.SetCellValue(noksheet, "D"+totx.srowx, Mobile)
+		xl.SetCellStyle(noksheet, "B"+totx.srowx, "H"+totx.srowx, styleV2L)
+
 		if !isCancelled {
 			xl.SetCellValue(noksheet, "E"+totx.srowx, properName(NokName))
 			xl.SetCellValue(noksheet, "F"+totx.srowx, properName(NokRelation))
 			xl.SetCellValue(noksheet, "G"+totx.srowx, NokNumber)
+			if NokMobileClash {
+				xl.SetCellStyle(noksheet, "G"+totx.srowx, "G"+totx.srowx, styleCancel)
+			}
+			if NokRiderClash || NokPillionClash {
+				xl.SetCellStyle(noksheet, "E"+totx.srowx, "E"+totx.srowx, styleCancel)
+			}
 		}
 		xl.SetCellValue(noksheet, "H"+totx.srowx, e.Email)
 
@@ -1413,7 +1427,8 @@ func writeTotals() {
 
 	xl.SetCellValue(noksheet, "B1", "Rider(first)")
 	xl.SetCellValue(noksheet, "C1", "Rider(last)")
-	xl.SetColWidth(noksheet, "B", "C", 15)
+	xl.SetColWidth(noksheet, "B", "C", 12)
+	xl.SetColWidth(noksheet, "D", "D", 15)
 
 	xl.SetCellValue(noksheet, "D1", "Mobile")
 	xl.SetCellValue(noksheet, "E1", "Contact name")
@@ -1421,9 +1436,9 @@ func writeTotals() {
 	xl.SetCellValue(noksheet, "G1", "Contact number")
 	xl.SetCellValue(noksheet, "H1", "Rider email")
 
-	xl.SetColWidth(noksheet, "D", "G", 18)
+	xl.SetColWidth(noksheet, "E", "G", 20)
 	xl.SetColWidth(noksheet, "F", "F", 12)
-	xl.SetColWidth(noksheet, "H", "H", 30)
+	xl.SetColWidth(noksheet, "H", "H", 32)
 
 	xl.SetCellValue(overviewsheet, "D1", "IBA #")
 	xl.SetCellValue(overviewsheet, "E1", strings.Title(cfg.Novice))
