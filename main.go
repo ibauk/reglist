@@ -427,9 +427,9 @@ func initSpreadsheet() {
 		xl.SetCellStyle(overviewsheet, overview_patch_column+"1", overview_patch_column+"1", styleH)
 	}
 
-	xl.SetCellStyle(regsheet, "A1", "H1", styleH2)
+	xl.SetCellStyle(regsheet, "A1", "I1", styleH2)
 	if cfg.Rally == "rblr" {
-		xl.SetCellStyle(regsheet, "I1", "J1", styleH2)
+		xl.SetCellStyle(regsheet, "J1", "K1", styleH2)
 	}
 	xl.SetCellStyle(noksheet, "A1", "H1", styleH2L)
 
@@ -895,6 +895,7 @@ func mainloop() {
 		xl.SetCellValue(regsheet, "E"+totx.srowx, properName(PillionFirst)+" "+properName(PillionLast))
 		if !isCancelled {
 			xl.SetCellValue(regsheet, "G"+totx.srowx, Make+" "+Model)
+			xl.SetCellValue(regsheet, "H"+totx.srowx, e.BikeReg)
 		}
 
 		// Overview
@@ -923,7 +924,7 @@ func mainloop() {
 			xl.SetCellInt(overviewsheet, string(cols[col])+totx.srowx, 1)
 
 			xl.SetCellValue(chksheet, "E"+totx.srowx, rblr_routes[col]) // Carpark
-			xl.SetCellValue(regsheet, "I"+totx.srowx, rblr_routes[col]) // Registration
+			xl.SetCellValue(regsheet, "J"+totx.srowx, rblr_routes[col]) // Registration
 
 			rblr_routes_ridden[col]++
 		}
@@ -964,7 +965,10 @@ func markCancelledEntrants() {
 	for _, r := range tot.CancelledRows {
 		rx := strconv.Itoa(r)
 		xl.SetCellStyle(overviewsheet, "A"+rx, "J"+rx, styleCancel)
-		xl.SetCellStyle(regsheet, "A"+rx, "J"+rx, styleCancel)
+		xl.SetCellStyle(regsheet, "A"+rx, "I"+rx, styleCancel)
+		if cfg.Rally == "rblr" {
+			xl.SetCellStyle(regsheet, "J"+rx, "K"+rx, styleCancel)
+		}
 		xl.SetCellStyle(noksheet, "A"+rx, "H"+rx, styleCancel)
 		if includeShopTab {
 			xl.SetCellStyle(shopsheet, "A"+rx, "I"+rx, styleCancel)
@@ -1175,15 +1179,15 @@ func writeTotals() {
 	xl.SetCellStyle(regsheet, "D2", "D"+totx.srowx, styleV)
 	xl.SetCellStyle(regsheet, "E2", "E"+totx.srowx, styleV2L)
 	xl.SetCellStyle(regsheet, "F2", "F"+totx.srowx, styleV)
-	xl.SetCellStyle(regsheet, "G2", "G"+totx.srowx, styleV2L)
-	xl.SetCellStyle(regsheet, "H2", "H"+totx.srowx, styleV)
+	xl.SetCellStyle(regsheet, "G2", "H"+totx.srowx, styleV2L)
+	xl.SetCellStyle(regsheet, "I2", "I"+totx.srowx, styleV)
 
 	xl.SetCellStyle(noksheet, "A2", "A"+totx.srowx, styleV3)
 
 	if cfg.Rally == "rblr" {
 		xl.SetCellStyle(overviewsheet, "K2", "R"+totx.srowx, styleV)
-		xl.SetCellStyle(regsheet, "I2", "I"+totx.srowx, styleV2)
-		xl.SetCellStyle(regsheet, "J2", "J"+totx.srowx, styleV)
+		xl.SetCellStyle(regsheet, "J2", "J"+totx.srowx, styleV2)
+		xl.SetCellStyle(regsheet, "K2", "K"+totx.srowx, styleV)
 	}
 	if len(cfg.Tshirts) > 0 {
 		n, _ := excelize.ColumnNameToNumber("S")
@@ -1365,9 +1369,10 @@ func writeTotals() {
 	xl.SetColWidth(regsheet, "E", "E", 20)
 	xl.SetColWidth(regsheet, "F", "F", 5)
 	xl.SetColWidth(regsheet, "G", "G", 30)
-	xl.SetColWidth(regsheet, "H", "H", 5)
-	xl.SetColWidth(regsheet, "I", "I", 10)
-	xl.SetColWidth(regsheet, "J", "J", 5)
+	xl.SetColWidth(regsheet, "H", "H", 10)
+	xl.SetColWidth(regsheet, "I", "I", 5)
+	xl.SetColWidth(regsheet, "J", "J", 10)
+	xl.SetColWidth(regsheet, "K", "K", 5)
 
 	xl.SetCellValue(regsheet, "B1", "Rider(first)")
 	xl.SetCellValue(regsheet, "C1", "Rider(last)")
@@ -1384,8 +1389,8 @@ func writeTotals() {
 
 	if cfg.Rally == "rblr" {
 		xl.SetCellValue(chksheet, "E1", "Route")
-		xl.SetCellValue(regsheet, "I1", "Route")
-		xl.SetCellValue(regsheet, "J1", "✓")
+		xl.SetCellValue(regsheet, "J1", "Route")
+		xl.SetCellValue(regsheet, "K1", "✓")
 	}
 
 	xl.SetCellValue(chksheet, "H1", "Notes")
@@ -1393,7 +1398,8 @@ func writeTotals() {
 	xl.SetCellValue(paysheet, "D1", "Entry")
 	xl.SetCellValue(paysheet, "E1", "Pillion")
 	xl.SetCellValue(regsheet, "G1", "Bike")
-	xl.SetCellValue(regsheet, "H1", "✓")
+	xl.SetCellValue(regsheet, "H1", "Reg")
+	xl.SetCellValue(regsheet, "I1", "✓")
 	if len(cfg.Tshirts) > 0 {
 		xl.SetCellValue(paysheet, "F1", "T-shirts")
 	}
