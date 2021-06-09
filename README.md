@@ -14,7 +14,7 @@ The workbook can be generated as either a "safe" version, containing values only
 ## Workbook pages
 
 ### Overview tab
-This front page is intended as a quick check page, with access to most information in one place.
+This page is intended as a quick check page, with access to most information in one place.
 
 ### Registration tab
 May be used as a physical registration log with columns to tick off key pieces of information.
@@ -39,8 +39,11 @@ Intended for "carpark check-out, check-in" use while the *Registration* and *NOK
 ## Commandline arguments
 Reglist is run from a shell (terminal or cmd) prompt (commandline) and its operation is controlled by several arguments or parameters as below:-
 
+**-adm**
+>The .CSV file was produced from the administrator screen rather than one of the passworded reports.
+
 **-cfg** *cfgname*
->The default is "rblr" which uses the file **rblr.yml** in the current folder. The ".yml" is appended to *cfgname* so specify "bbr", "bbl", etc
+>This must be specified, there is no default value. ".yml" is appended to *cfgname* so specify "rblr", "bbr", "bbl", etc
 
 **-csv** *filename*
 >Full path of the input .CSV file containing entrant data. The default is **entrants.csv** in the current folder.
@@ -48,14 +51,23 @@ Reglist is run from a shell (terminal or cmd) prompt (commandline) and its opera
 **-exp** *filename*
 >Full path of a .CSV file to be created as input to, *inter alia*, the ScoreMaster rally administration software. This file is in a format standard across all IBAUK events and reflecting any renumbering or data cleansing carried out by Reglist.
 
+**-live**
+>Produce a spreadsheet with updateable totals.
+
 **-nocsv**
 >Don't import a .CSV file, just reuse the existing contents of the intermediate SQLite database
 
+**-nolookup**
+>Do not attempt to reconcile IBA membership numbers. By default, entrant details are compared with the online membership database.
+
+**-rd** *filename*
+>Use a local database for IBA membership reconciliation.
+
 **-rpt**
->The .CSV file was produced by a Wufoo report as opposed to the default format exported when logged in as administrator. This switch actually chooses the **rfields** entry in the configuration rather than the **afields**. For some reason in their infinite wisdom Wufoo see fit to export the metadata fields at the end of each record in report extracts rather than at the beginning for admin downloads.
+>The .CSV file was produced by a Wufoo report as opposed to the format exported when logged in as administrator. This switch actually chooses the **rfields** entry in the configuration rather than the **afields**. For some reason in their infinite wisdom Wufoo see fit to export the metadata fields at the end of each record in report extracts rather than at the beginning for admin downloads.  This is the default setting.
 
 **-safe**
->Produce a spreadsheet with values only, no formulas. The default is for totals, etc to be live formulas so the sheet can be updated by hand
+>Produce a spreadsheet with values only, no formulas. This is the default setting.
 
 **-sql** *filename*
 >The full path to the SQLite database file used by the process. The default is **entrantdata.db** in the current folder.
@@ -108,8 +120,20 @@ Further fine control over the output is achieved by the use of configuration fil
 **entrantorder:** *fieldlist*
 >Entrants will be listed on the spreadsheet in this order. *fieldlist* may contain SQL functions including **upper**, **lower**, etc and may also specify **DESC** to reverse the order.
 
-### Reglist feature control
-A file, **reglist.yml**, if present in the current folder controls internal features such as auto-capitalisation of names and bikes. This YAML file contains a switch and two arrays of strings, one for names and the other for bikes. The switch **propercasenames:** if true causes all names to be presented in "proper" or "title" case (John Smith, Fred Bone). Bike descriptions aren't given any blanket lettercase treatment.
+**weekly:** *true* / *false*
+>A chart shows entries per period. If this is true, the period is weekly otherwise the period is monthly.
 
-The list **specialnames:** specifies names with unusual lettercasing such as McKay or StJohn. **bikewords:** includes proper names such as Honda, Suzuki, Africa, Twin and so on as well as model codes such as "RS" or "N". The entries must be specified using the desired lettercasing so most variations are catered for.
+---
 
+## Reglist feature control
+A file, **reglist.yml**, if present in the current folder controls internal features such as auto-capitalisation of names and bikes. This YAML file contains the following optional settings:
+
+- The switch **propercasenames:** if true causes all names to be presented in "proper" or "title" case (John Smith, Fred Bone). Bike descriptions aren't given any blanket lettercase treatment.
+
+- The list **specialnames:** specifies names with unusual lettercasing such as McKay or StJohn. 
+
+- The list **bikewords:** includes proper names such as Honda, Suzuki, Africa, Twin and so on as well as model codes such as "RS" or "N". The entries must be specified using the desired lettercasing so most variations are catered for.
+
+- The string **defaultbike:** is used as a presentable substitute for descriptions such as "TBC", "to be advised" or "unknown". This string is also used in the case of descriptions consisting only of the manufacturer's name eg "Yamaha" might appear on certificates as "Yamaha motorbike".
+
+- The string **defaultre:** is a regular expression applied to bike descriptions. All matches are replaced with the value of defaultbike above.
