@@ -840,9 +840,17 @@ func mainloop() {
 
 		tot.TotMoneyMainPaypal += intval(PayTot)
 
+		due := (intval(PayTot) + intCash) - feesdue
+
 		if cfg.Sponsorship {
 			// This extracts a number if present from either "Include ..." or "I'll bring ..."
 			Sponsorship += intval(Sponsor) // "50"
+
+			due -= Sponsorship
+			if due > 0 {
+				Sponsorship += due
+				due = 0
+			}
 
 			tot.TotMoneySponsor += Sponsorship
 
@@ -868,7 +876,7 @@ func mainloop() {
 			ff := "J" + totx.srowx + "-(sum(D" + totx.srowx + ":G" + totx.srowx + ")+I" + totx.srowx + ")"
 			xl.SetCellFormula(paysheet, "K"+totx.srowx, "if("+ff+"=0,\"\","+ff+")")
 		} else {
-			due := (intval(PayTot) + intCash) - (feesdue + Sponsorship)
+			//due := (intval(PayTot) + intCash) - (feesdue + Sponsorship)
 			if due != 0 {
 				xl.SetCellInt(paysheet, "K"+totx.srowx, due)
 			}
