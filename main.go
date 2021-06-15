@@ -42,7 +42,7 @@ var expReport *string = flag.String("exp", "", "Path to output standard format C
 var ridesdb *string = flag.String("rd", "", "Path of rides database for lookup")
 var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA members")
 
-const apptitle = "IBAUK Reglist v1.7.1\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.8\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -102,7 +102,7 @@ ifnull(Date_Created,''),ifnull(Withdrawn,''),ifnull(HasPillion,'')`
 
 var sqlx string
 
-var styleH, styleH2, styleH2L, styleT, styleV, styleV2, styleV2L, styleV3, styleW, styleCancel, styleRJ, styleRJSmall int
+var styleH, styleH2, styleH2L, styleT, styleV, styleV2, styleV2L, styleV2LBig, styleV3, styleW, styleCancel, styleRJ, styleRJSmall int
 
 var cfg *Config
 var words *Words
@@ -402,7 +402,7 @@ func initSpreadsheet() {
 	xl.NewSheet(paysheet)
 	formatSheet(paysheet, false)
 	xl.NewSheet(chksheet)
-	formatSheet(chksheet, false)
+	formatSheet(chksheet, true)
 
 	renameSheet(&totsheet, "Stats")
 
@@ -414,6 +414,7 @@ func initSpreadsheet() {
 		xl.SetCellStyle(overviewsheet, "H1", "H1", styleH)
 		xl.SetColVisible(overviewsheet, "E", false)
 		xl.SetColVisible(overviewsheet, "G:H", false)
+		xl.SetColVisible(chksheet, "A", false)
 	} else {
 		xl.SetColWidth(overviewsheet, "K", "R", 1)
 		xl.SetColVisible(overviewsheet, "K:R", false)
@@ -435,8 +436,8 @@ func initSpreadsheet() {
 
 	xl.SetCellStyle(paysheet, "A1", "K1", styleH2)
 
-	xl.SetCellStyle(chksheet, "A1", "A1", styleH2)
-	xl.SetCellStyle(chksheet, "A1", "H1", styleH2)
+	xl.SetCellStyle(chksheet, "A1", "C1", styleH2L)
+	xl.SetCellStyle(chksheet, "D1", "E1", styleH2)
 
 	if includeShopTab {
 		xl.SetCellStyle(shopsheet, "A1", shop_patch_column+"1", styleH2)
@@ -753,6 +754,14 @@ func mainloop() {
 			tot.CancelledRows = append(tot.CancelledRows, totx.srow)
 		}
 
+		if isCancelled {
+			xl.SetRowVisible(chksheet, totx.srow, false)
+			xl.SetRowVisible(regsheet, totx.srow, false)
+			xl.SetRowVisible(noksheet, totx.srow, false)
+		} else {
+			xl.SetRowHeight(chksheet, totx.srow, 25)
+		}
+
 		// Entrant IDs
 		xl.SetCellInt(overviewsheet, "A"+totx.srowx, entrantid)
 		xl.SetCellInt(regsheet, "A"+totx.srowx, entrantid)
@@ -778,11 +787,11 @@ func mainloop() {
 		}
 		xl.SetCellValue(chksheet, "B"+totx.srowx, RiderFirst)
 		xl.SetCellValue(chksheet, "C"+totx.srowx, RiderLast)
-		if !isCancelled {
-			xl.SetCellValue(chksheet, "D"+totx.srowx, Bike)
-		}
+		//if !isCancelled {
+		//	xl.SetCellValue(chksheet, "D"+totx.srowx, Bike)
+		//}
 		if len(odocounts) > 0 && odocounts[0] == 'K' {
-			xl.SetCellValue(chksheet, "F"+totx.srowx, "kms")
+			xl.SetCellValue(chksheet, "D"+totx.srowx, "kms")
 		}
 
 		cancelledFees := 0
@@ -931,7 +940,7 @@ func mainloop() {
 			col = strings.Index("ABCDEF", string(Route[0])) // Which route is being ridden. Compare the A -, B -, ...
 			xl.SetCellInt(overviewsheet, string(cols[col])+totx.srowx, 1)
 
-			xl.SetCellValue(chksheet, "E"+totx.srowx, rblr_routes[col]) // Carpark
+			//xl.SetCellValue(chksheet, "E"+totx.srowx, rblr_routes[col]) // Carpark
 			xl.SetCellValue(regsheet, "J"+totx.srowx, rblr_routes[col]) // Registration
 
 			rblr_routes_ridden[col]++
@@ -1171,10 +1180,11 @@ func writeTotals() {
 	xl.SetCellStyle(overviewsheet, "B2", "J"+totx.srowx, styleV2L)
 	xl.SetCellStyle(overviewsheet, "E2", "E"+totx.srowx, styleV2)
 	xl.SetCellStyle(overviewsheet, "H2", "H"+totx.srowx, styleV2)
-	xl.SetCellStyle(chksheet, "A2", "A"+totx.srowx, styleV2)
-	xl.SetCellStyle(chksheet, "B2", "E"+totx.srowx, styleV2L)
-	xl.SetCellStyle(chksheet, "F2", "G"+totx.srowx, styleRJSmall)
-	xl.SetCellStyle(chksheet, "H2", "H"+totx.srowx, styleV2)
+
+	xl.SetCellStyle(chksheet, "A2", "A"+totx.srowx, styleV2LBig)
+	xl.SetCellStyle(chksheet, "B2", "C"+totx.srowx, styleV2LBig)
+	xl.SetCellStyle(chksheet, "D2", "E"+totx.srowx, styleRJSmall)
+	//xl.SetCellStyle(chksheet, "H2", "H"+totx.srowx, styleV2)
 
 	if includeShopTab {
 		xl.SetCellStyle(shopsheet, "A2", "A"+totx.srowx, styleV2)
@@ -1194,7 +1204,7 @@ func writeTotals() {
 
 	if cfg.Rally == "rblr" {
 		xl.SetCellStyle(overviewsheet, "K2", "R"+totx.srowx, styleV)
-		xl.SetCellStyle(regsheet, "J2", "J"+totx.srowx, styleV2)
+		xl.SetCellStyle(regsheet, "J2", "J"+totx.srowx, styleV2L)
 		xl.SetCellStyle(regsheet, "K2", "K"+totx.srowx, styleV)
 	}
 	if len(cfg.Tshirts) > 0 {
@@ -1389,19 +1399,19 @@ func writeTotals() {
 	xl.SetCellValue(paysheet, "C1", "Rider(last)")
 	xl.SetCellValue(chksheet, "B1", "Rider(first)")
 	xl.SetCellValue(chksheet, "C1", "Rider(last)")
-	xl.SetCellValue(chksheet, "D1", "Bike")
+	//xl.SetCellValue(chksheet, "D1", "Bike")
 	xl.SetCellValue(regsheet, "E1", "Pillion")
 	xl.SetCellValue(regsheet, "F1", "✓")
-	xl.SetCellValue(chksheet, "F1", "Odo")
-	xl.SetCellValue(chksheet, "G1", "Time")
+	xl.SetCellValue(chksheet, "D1", "Odo")
+	xl.SetCellValue(chksheet, "E1", "Time")
 
 	if cfg.Rally == "rblr" {
-		xl.SetCellValue(chksheet, "E1", "Route")
+		//xl.SetCellValue(chksheet, "E1", "Route")
 		xl.SetCellValue(regsheet, "J1", "Route")
 		xl.SetCellValue(regsheet, "K1", "✓")
 	}
 
-	xl.SetCellValue(chksheet, "H1", "Notes")
+	//xl.SetCellValue(chksheet, "H1", "Notes")
 
 	xl.SetCellValue(paysheet, "D1", "Entry")
 	xl.SetCellValue(paysheet, "E1", "Pillion")
@@ -1432,10 +1442,10 @@ func writeTotals() {
 	xl.SetCellValue(overviewsheet, "C1", "Rider(last)")
 	xl.SetColWidth(overviewsheet, "B", "C", 12)
 
-	xl.SetColWidth(chksheet, "B", "C", 12)
-	xl.SetColWidth(chksheet, "D", "D", 30)
-	xl.SetColWidth(chksheet, "F", "G", 10)
-	xl.SetColWidth(chksheet, "H", "H", 40)
+	xl.SetColWidth(chksheet, "B", "C", 15)
+	xl.SetColWidth(chksheet, "D", "E", 20)
+	//xl.SetColWidth(chksheet, "F", "G", 10)
+	//xl.SetColWidth(chksheet, "H", "H", 40)
 
 	xl.SetColWidth(overviewsheet, "D", "D", 8) // Rider IBA
 
@@ -1850,6 +1860,32 @@ func initStyles() {
 					"color": "000000",
 					"style": 1
 				}]		
+		}`)
+
+	styleV2LBig, _ = xl.NewStyle(`{
+			"alignment":
+			{
+				"horizontal": "left",
+				"ident": 1,
+				"justify_last_line": true,
+				"reading_order": 0,
+				"relative_indent": 1,
+				"shrink_to_fit": true,
+				"text_rotation": 0,
+				"vertical": "",
+				"wrap_text": false
+			},
+			"border": [
+				{
+					"type": "bottom",
+					"color": "000000",
+					"style": 1
+				}],
+			"font":
+				{
+					"size": 16
+				}
+		
 		}`)
 
 	styleV3, _ = xl.NewStyle(`{
