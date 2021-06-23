@@ -41,8 +41,10 @@ var livemode *bool = flag.Bool("live", false, "Self-updating, live mode")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
 var ridesdb *string = flag.String("rd", "", "Path of rides database for lookup")
 var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA members")
+var summaryOnly *bool = flag.Bool("summary", true, "Produce Summary/overview tabs only")
+var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 
-const apptitle = "IBAUK Reglist v1.8\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.9\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -301,6 +303,10 @@ func init() {
 		fmt.Printf("CSV downloaded from Wufoo Administrator page\n")
 	}
 
+	if *allTabs {
+		*summaryOnly = false
+	}
+
 	var sm string = "live"
 	if *livemode {
 		*safemode = false
@@ -391,19 +397,20 @@ func initSpreadsheet() {
 	formatSheet(totsheet, false)
 	xl.NewSheet(overviewsheet)
 	formatSheet(overviewsheet, false)
-	xl.NewSheet(regsheet)
-	formatSheet(regsheet, false)
-	xl.NewSheet(noksheet)
-	formatSheet(noksheet, false)
-	if includeShopTab {
-		xl.NewSheet(shopsheet)
-		formatSheet(shopsheet, false)
+	if !*summaryOnly {
+		xl.NewSheet(regsheet)
+		formatSheet(regsheet, false)
+		xl.NewSheet(noksheet)
+		formatSheet(noksheet, false)
+		if includeShopTab {
+			xl.NewSheet(shopsheet)
+			formatSheet(shopsheet, false)
+		}
+		xl.NewSheet(paysheet)
+		formatSheet(paysheet, false)
+		xl.NewSheet(chksheet)
+		formatSheet(chksheet, true)
 	}
-	xl.NewSheet(paysheet)
-	formatSheet(paysheet, false)
-	xl.NewSheet(chksheet)
-	formatSheet(chksheet, true)
-
 	renameSheet(&totsheet, "Stats")
 
 	// Set heading styles
@@ -414,7 +421,9 @@ func initSpreadsheet() {
 		xl.SetCellStyle(overviewsheet, "H1", "H1", styleH)
 		xl.SetColVisible(overviewsheet, "E", false)
 		xl.SetColVisible(overviewsheet, "G:H", false)
-		xl.SetColVisible(chksheet, "A", false)
+		if !*summaryOnly {
+			xl.SetColVisible(chksheet, "A", false)
+		}
 	} else {
 		xl.SetColWidth(overviewsheet, "K", "R", 1)
 		xl.SetColVisible(overviewsheet, "K:R", false)
@@ -428,19 +437,21 @@ func initSpreadsheet() {
 		xl.SetCellStyle(overviewsheet, overview_patch_column+"1", overview_patch_column+"1", styleH)
 	}
 
-	xl.SetCellStyle(regsheet, "A1", "I1", styleH2)
-	if cfg.Rally == "rblr" {
-		xl.SetCellStyle(regsheet, "J1", "K1", styleH2)
-	}
-	xl.SetCellStyle(noksheet, "A1", "H1", styleH2L)
+	if !*summaryOnly {
+		xl.SetCellStyle(regsheet, "A1", "I1", styleH2)
+		if cfg.Rally == "rblr" {
+			xl.SetCellStyle(regsheet, "J1", "K1", styleH2)
+		}
+		xl.SetCellStyle(noksheet, "A1", "H1", styleH2L)
 
-	xl.SetCellStyle(paysheet, "A1", "K1", styleH2)
+		xl.SetCellStyle(paysheet, "A1", "K1", styleH2)
 
-	xl.SetCellStyle(chksheet, "A1", "C1", styleH2L)
-	xl.SetCellStyle(chksheet, "D1", "E1", styleH2)
+		xl.SetCellStyle(chksheet, "A1", "C1", styleH2L)
+		xl.SetCellStyle(chksheet, "D1", "E1", styleH2)
 
-	if includeShopTab {
-		xl.SetCellStyle(shopsheet, "A1", shop_patch_column+"1", styleH2)
+		if includeShopTab {
+			xl.SetCellStyle(shopsheet, "A1", shop_patch_column+"1", styleH2)
+		}
 	}
 
 }
@@ -754,51 +765,61 @@ func mainloop() {
 			tot.CancelledRows = append(tot.CancelledRows, totx.srow)
 		}
 
-		if isCancelled {
-			xl.SetRowVisible(chksheet, totx.srow, false)
-			xl.SetRowVisible(regsheet, totx.srow, false)
-			xl.SetRowVisible(noksheet, totx.srow, false)
-		} else {
-			xl.SetRowHeight(chksheet, totx.srow, 25)
+		if !*summaryOnly {
+			if isCancelled {
+				xl.SetRowVisible(chksheet, totx.srow, false)
+				xl.SetRowVisible(regsheet, totx.srow, false)
+				xl.SetRowVisible(noksheet, totx.srow, false)
+			} else {
+				xl.SetRowHeight(chksheet, totx.srow, 25)
+			}
 		}
 
 		// Entrant IDs
 		xl.SetCellInt(overviewsheet, "A"+totx.srowx, entrantid)
-		xl.SetCellInt(regsheet, "A"+totx.srowx, entrantid)
-		xl.SetCellInt(noksheet, "A"+totx.srowx, entrantid)
-		xl.SetCellInt(paysheet, "A"+totx.srowx, entrantid)
-		if includeShopTab {
-			xl.SetCellInt(shopsheet, "A"+totx.srowx, entrantid)
-		}
-		xl.SetCellInt(chksheet, "A"+totx.srowx, entrantid)
+		if !*summaryOnly {
+			xl.SetCellInt(regsheet, "A"+totx.srowx, entrantid)
+			xl.SetCellInt(noksheet, "A"+totx.srowx, entrantid)
+			xl.SetCellInt(paysheet, "A"+totx.srowx, entrantid)
+			if includeShopTab {
+				xl.SetCellInt(shopsheet, "A"+totx.srowx, entrantid)
+			}
+			xl.SetCellInt(chksheet, "A"+totx.srowx, entrantid)
 
+		}
 		// Rider names
 		xl.SetCellValue(overviewsheet, "B"+totx.srowx, RiderFirst)
 		xl.SetCellValue(overviewsheet, "C"+totx.srowx, RiderLast)
-		xl.SetCellValue(regsheet, "B"+totx.srowx, RiderFirst)
-		xl.SetCellValue(regsheet, "C"+totx.srowx, RiderLast)
-		xl.SetCellValue(noksheet, "B"+totx.srowx, RiderFirst)
-		xl.SetCellValue(noksheet, "C"+totx.srowx, RiderLast)
-		xl.SetCellValue(paysheet, "B"+totx.srowx, RiderFirst)
-		xl.SetCellValue(paysheet, "C"+totx.srowx, RiderLast)
-		if includeShopTab {
-			xl.SetCellValue(shopsheet, "B"+totx.srowx, RiderFirst)
-			xl.SetCellValue(shopsheet, "C"+totx.srowx, RiderLast)
-		}
-		xl.SetCellValue(chksheet, "B"+totx.srowx, RiderFirst)
-		xl.SetCellValue(chksheet, "C"+totx.srowx, RiderLast)
-		//if !isCancelled {
-		//	xl.SetCellValue(chksheet, "D"+totx.srowx, Bike)
-		//}
-		if len(odocounts) > 0 && odocounts[0] == 'K' {
-			xl.SetCellValue(chksheet, "D"+totx.srowx, "kms")
+
+		if !*summaryOnly {
+			xl.SetCellValue(regsheet, "B"+totx.srowx, RiderFirst)
+			xl.SetCellValue(regsheet, "C"+totx.srowx, RiderLast)
+			xl.SetCellValue(noksheet, "B"+totx.srowx, RiderFirst)
+			xl.SetCellValue(noksheet, "C"+totx.srowx, RiderLast)
+			xl.SetCellValue(paysheet, "B"+totx.srowx, RiderFirst)
+			xl.SetCellValue(paysheet, "C"+totx.srowx, RiderLast)
+			if includeShopTab {
+				xl.SetCellValue(shopsheet, "B"+totx.srowx, RiderFirst)
+				xl.SetCellValue(shopsheet, "C"+totx.srowx, RiderLast)
+			}
+			xl.SetCellValue(chksheet, "B"+totx.srowx, RiderFirst)
+			xl.SetCellValue(chksheet, "C"+totx.srowx, RiderLast)
+			//if !isCancelled {
+			//	xl.SetCellValue(chksheet, "D"+totx.srowx, Bike)
+			//}
+			if len(odocounts) > 0 && odocounts[0] == 'K' {
+				xl.SetCellValue(chksheet, "D"+totx.srowx, "kms")
+			}
+
 		}
 
 		cancelledFees := 0
 
 		if !isCancelled {
-			// Fees on Money tab
-			xl.SetCellInt(paysheet, "D"+totx.srowx, cfg.Riderfee) // Basic entry fee
+			if !*summaryOnly {
+				// Fees on Money tab
+				xl.SetCellInt(paysheet, "D"+totx.srowx, cfg.Riderfee) // Basic entry fee
+			}
 			feesdue += cfg.Riderfee
 		} else {
 			cancelledFees += cfg.Riderfee
@@ -806,7 +827,9 @@ func mainloop() {
 
 		if PillionFirst != "" && PillionLast != "" {
 			if !isCancelled {
-				xl.SetCellInt(paysheet, "E"+totx.srowx, cfg.Pillionfee)
+				if !*summaryOnly {
+					xl.SetCellInt(paysheet, "E"+totx.srowx, cfg.Pillionfee)
+				}
 				tot.NumPillions++
 				feesdue += cfg.Pillionfee
 			} else {
@@ -819,7 +842,9 @@ func mainloop() {
 		}
 		if nt > 0 {
 			if !isCancelled || !cancelsLoseOut {
-				xl.SetCellInt(paysheet, "F"+totx.srowx, cfg.Tshirtcost*nt)
+				if !*summaryOnly {
+					xl.SetCellInt(paysheet, "F"+totx.srowx, cfg.Tshirtcost*nt)
+				}
 				feesdue += nt * cfg.Tshirtcost
 			} else {
 				cancelledFees += nt * cfg.Tshirtcost
@@ -829,9 +854,13 @@ func mainloop() {
 		if cfg.Patchavail && npatches > 0 {
 			if !isCancelled || !cancelsLoseOut {
 				xl.SetCellInt(overviewsheet, "X"+totx.srowx, npatches) // Overview tab
-				xl.SetCellInt(paysheet, "G"+totx.srowx, npatches*cfg.Patchcost)
-				xl.SetCellInt(shopsheet, shop_patch_column+totx.srowx, npatches) // Shop tab
+
+				if !*summaryOnly {
+					xl.SetCellInt(paysheet, "G"+totx.srowx, npatches*cfg.Patchcost)
+					xl.SetCellInt(shopsheet, shop_patch_column+totx.srowx, npatches) // Shop tab
+				}
 				feesdue += npatches * cfg.Patchcost
+
 			} else {
 				cancelledFees += npatches * cfg.Patchcost
 			}
@@ -863,58 +892,65 @@ func mainloop() {
 
 			tot.TotMoneySponsor += Sponsorship
 
-			if *safemode {
-				if Sponsorship != 0 {
-					xl.SetCellInt(paysheet, "I"+totx.srowx, Sponsorship)
+			if !*summaryOnly {
+				if *safemode {
+					if Sponsorship != 0 {
+						xl.SetCellInt(paysheet, "I"+totx.srowx, Sponsorship)
+					}
+					xl.SetCellInt(paysheet, "J"+totx.srowx, intCash+intval(PayTot))
+				} else {
+					sf := "H" + totx.srowx + "+" + strconv.Itoa(Sponsorship)
+					xl.SetCellFormula(paysheet, "I"+totx.srowx, "if("+sf+"=0,\"0\","+sf+")")
+					xl.SetCellFormula(paysheet, "J"+totx.srowx, "H"+totx.srowx+"+"+strconv.Itoa(intCash)+"+"+strconv.Itoa(intval(PayTot)))
 				}
-				xl.SetCellInt(paysheet, "J"+totx.srowx, intCash+intval(PayTot))
+
 			} else {
-				sf := "H" + totx.srowx + "+" + strconv.Itoa(Sponsorship)
-				xl.SetCellFormula(paysheet, "I"+totx.srowx, "if("+sf+"=0,\"0\","+sf+")")
-				xl.SetCellFormula(paysheet, "J"+totx.srowx, "H"+totx.srowx+"+"+strconv.Itoa(intCash)+"+"+strconv.Itoa(intval(PayTot)))
+				xl.SetCellInt(paysheet, "J"+totx.srowx, intval(PayTot))
 			}
 
-		} else {
-			xl.SetCellInt(paysheet, "J"+totx.srowx, intval(PayTot))
 		}
-
-		if Paid == "Unpaid" {
-			xl.SetCellValue(paysheet, "K"+totx.srowx, " UNPAID")
-			xl.SetCellStyle(paysheet, "K"+totx.srowx, "K"+totx.srowx, styleW)
-		} else if !*safemode {
-			ff := "J" + totx.srowx + "-(sum(D" + totx.srowx + ":G" + totx.srowx + ")+I" + totx.srowx + ")"
-			xl.SetCellFormula(paysheet, "K"+totx.srowx, "if("+ff+"=0,\"\","+ff+")")
-		} else {
-			//due := (intval(PayTot) + intCash) - (feesdue + Sponsorship)
-			if due != 0 {
-				xl.SetCellInt(paysheet, "K"+totx.srowx, due)
+		if !*summaryOnly {
+			if Paid == "Unpaid" {
+				xl.SetCellValue(paysheet, "K"+totx.srowx, " UNPAID")
+				xl.SetCellStyle(paysheet, "K"+totx.srowx, "K"+totx.srowx, styleW)
+			} else if !*safemode {
+				ff := "J" + totx.srowx + "-(sum(D" + totx.srowx + ":G" + totx.srowx + ")+I" + totx.srowx + ")"
+				xl.SetCellFormula(paysheet, "K"+totx.srowx, "if("+ff+"=0,\"\","+ff+")")
+			} else {
+				//due := (intval(PayTot) + intCash) - (feesdue + Sponsorship)
+				if due != 0 {
+					xl.SetCellInt(paysheet, "K"+totx.srowx, due)
+				}
 			}
 		}
 
-		// NOK List
-		xl.SetCellValue(noksheet, "D"+totx.srowx, Mobile)
-		xl.SetCellStyle(noksheet, "B"+totx.srowx, "H"+totx.srowx, styleV2L)
+		if !*summaryOnly {
+			// NOK List
+			xl.SetCellValue(noksheet, "D"+totx.srowx, Mobile)
+			xl.SetCellStyle(noksheet, "B"+totx.srowx, "H"+totx.srowx, styleV2L)
 
-		if !isCancelled {
-			xl.SetCellValue(noksheet, "E"+totx.srowx, properName(NokName))
-			xl.SetCellValue(noksheet, "F"+totx.srowx, properName(NokRelation))
-			xl.SetCellValue(noksheet, "G"+totx.srowx, NokNumber)
-			if NokMobileClash {
-				xl.SetCellStyle(noksheet, "G"+totx.srowx, "G"+totx.srowx, styleCancel)
+			if !isCancelled {
+				xl.SetCellValue(noksheet, "E"+totx.srowx, properName(NokName))
+				xl.SetCellValue(noksheet, "F"+totx.srowx, properName(NokRelation))
+				xl.SetCellValue(noksheet, "G"+totx.srowx, NokNumber)
+				if NokMobileClash {
+					xl.SetCellStyle(noksheet, "G"+totx.srowx, "G"+totx.srowx, styleCancel)
+				}
+				if NokRiderClash || NokPillionClash {
+					xl.SetCellStyle(noksheet, "E"+totx.srowx, "E"+totx.srowx, styleCancel)
+				}
 			}
-			if NokRiderClash || NokPillionClash {
-				xl.SetCellStyle(noksheet, "E"+totx.srowx, "E"+totx.srowx, styleCancel)
-			}
-		}
-		xl.SetCellValue(noksheet, "H"+totx.srowx, e.Email)
-
-		// Registration log
-		xl.SetCellValue(regsheet, "E"+totx.srowx, properName(PillionFirst)+" "+properName(PillionLast))
-		if !isCancelled {
-			xl.SetCellValue(regsheet, "G"+totx.srowx, Make+" "+Model)
-			xl.SetCellValue(regsheet, "H"+totx.srowx, e.BikeReg)
+			xl.SetCellValue(noksheet, "H"+totx.srowx, e.Email)
 		}
 
+		if !*summaryOnly {
+			// Registration log
+			xl.SetCellValue(regsheet, "E"+totx.srowx, properName(PillionFirst)+" "+properName(PillionLast))
+			if !isCancelled {
+				xl.SetCellValue(regsheet, "G"+totx.srowx, Make+" "+Model)
+				xl.SetCellValue(regsheet, "H"+totx.srowx, e.BikeReg)
+			}
+		}
 		// Overview
 		xl.SetCellValue(overviewsheet, "D"+totx.srowx, fmtIBA(e.RiderIBA))
 
@@ -940,13 +976,15 @@ func mainloop() {
 			col = strings.Index("ABCDEF", string(Route[0])) // Which route is being ridden. Compare the A -, B -, ...
 			xl.SetCellInt(overviewsheet, string(cols[col])+totx.srowx, 1)
 
-			//xl.SetCellValue(chksheet, "E"+totx.srowx, rblr_routes[col]) // Carpark
-			xl.SetCellValue(regsheet, "J"+totx.srowx, rblr_routes[col]) // Registration
+			if !*summaryOnly {
+				//xl.SetCellValue(chksheet, "E"+totx.srowx, rblr_routes[col]) // Carpark
+				xl.SetCellValue(regsheet, "J"+totx.srowx, rblr_routes[col]) // Registration
+			}
 
 			rblr_routes_ridden[col]++
 		}
 
-		if includeShopTab {
+		if includeShopTab && !*summaryOnly {
 			//cols = "DEFGH"
 			n, _ := excelize.ColumnNameToNumber("D")
 			for col = 0; col < len(tshirts); col++ {
@@ -982,17 +1020,19 @@ func markCancelledEntrants() {
 	for _, r := range tot.CancelledRows {
 		rx := strconv.Itoa(r)
 		xl.SetCellStyle(overviewsheet, "A"+rx, "J"+rx, styleCancel)
-		xl.SetCellStyle(regsheet, "A"+rx, "I"+rx, styleCancel)
-		if cfg.Rally == "rblr" {
-			xl.SetCellStyle(regsheet, "J"+rx, "K"+rx, styleCancel)
-		}
-		xl.SetCellStyle(noksheet, "A"+rx, "H"+rx, styleCancel)
-		if includeShopTab {
-			xl.SetCellStyle(shopsheet, "A"+rx, "I"+rx, styleCancel)
-		}
-		xl.SetCellStyle(paysheet, "A"+rx, "J"+rx, styleCancel)
-		xl.SetCellStyle(chksheet, "A"+rx, "H"+rx, styleCancel)
 
+		if !*summaryOnly {
+			xl.SetCellStyle(regsheet, "A"+rx, "I"+rx, styleCancel)
+			if cfg.Rally == "rblr" {
+				xl.SetCellStyle(regsheet, "J"+rx, "K"+rx, styleCancel)
+			}
+			xl.SetCellStyle(noksheet, "A"+rx, "H"+rx, styleCancel)
+			if includeShopTab {
+				xl.SetCellStyle(shopsheet, "A"+rx, "I"+rx, styleCancel)
+			}
+			xl.SetCellStyle(paysheet, "A"+rx, "J"+rx, styleCancel)
+			xl.SetCellStyle(chksheet, "A"+rx, "H"+rx, styleCancel)
+		}
 	}
 
 }
@@ -1001,20 +1041,24 @@ func markCancelledEntrants() {
 // sets the appropriate print area
 func setTabFormats() {
 
-	setPageTitle(overviewsheet)
-	setPageTitle(noksheet)
-	setPageTitle(paysheet)
 	setPageTitle(totsheet)
-	setPageTitle(chksheet)
-	setPageTitle(regsheet)
+	setPageTitle(overviewsheet)
 
+	if !*summaryOnly {
+		setPageTitle(noksheet)
+		setPageTitle(paysheet)
+		setPageTitle(chksheet)
+		setPageTitle(regsheet)
+	}
 	setPagePane(overviewsheet)
-	setPagePane(noksheet)
-	setPagePane(paysheet)
-	setPagePane(chksheet)
-	setPagePane(regsheet)
+	if !*summaryOnly {
+		setPagePane(noksheet)
+		setPagePane(paysheet)
+		setPagePane(chksheet)
+		setPagePane(regsheet)
+	}
 
-	if includeShopTab {
+	if includeShopTab && !*summaryOnly {
 		setPageTitle(shopsheet)
 		setPagePane(shopsheet)
 	}
@@ -1176,36 +1220,42 @@ func writeTotals() {
 		}
 
 	}
+
 	xl.SetCellStyle(overviewsheet, "A2", "A"+totx.srowx, styleV2)
 	xl.SetCellStyle(overviewsheet, "B2", "J"+totx.srowx, styleV2L)
 	xl.SetCellStyle(overviewsheet, "E2", "E"+totx.srowx, styleV2)
 	xl.SetCellStyle(overviewsheet, "H2", "H"+totx.srowx, styleV2)
 
-	xl.SetCellStyle(chksheet, "A2", "A"+totx.srowx, styleV2LBig)
-	xl.SetCellStyle(chksheet, "B2", "C"+totx.srowx, styleV2LBig)
-	xl.SetCellStyle(chksheet, "D2", "E"+totx.srowx, styleRJSmall)
-	//xl.SetCellStyle(chksheet, "H2", "H"+totx.srowx, styleV2)
+	if !*summaryOnly {
+		xl.SetCellStyle(chksheet, "A2", "A"+totx.srowx, styleV2LBig)
+		xl.SetCellStyle(chksheet, "B2", "C"+totx.srowx, styleV2LBig)
+		xl.SetCellStyle(chksheet, "D2", "E"+totx.srowx, styleRJSmall)
+		//xl.SetCellStyle(chksheet, "H2", "H"+totx.srowx, styleV2)
 
-	if includeShopTab {
-		xl.SetCellStyle(shopsheet, "A2", "A"+totx.srowx, styleV2)
-		xl.SetCellStyle(shopsheet, "B2", "C"+totx.srowx, styleV2L)
-		xl.SetCellStyle(shopsheet, "D2", shop_patch_column+totx.srowx, styleV2)
+		if includeShopTab {
+			xl.SetCellStyle(shopsheet, "A2", "A"+totx.srowx, styleV2)
+			xl.SetCellStyle(shopsheet, "B2", "C"+totx.srowx, styleV2L)
+			xl.SetCellStyle(shopsheet, "D2", shop_patch_column+totx.srowx, styleV2)
+		}
+
+		xl.SetCellStyle(regsheet, "A2", "A"+totx.srowx, styleV2)
+		xl.SetCellStyle(regsheet, "B2", "C"+totx.srowx, styleV2L)
+		xl.SetCellStyle(regsheet, "D2", "D"+totx.srowx, styleV)
+		xl.SetCellStyle(regsheet, "E2", "E"+totx.srowx, styleV2L)
+		xl.SetCellStyle(regsheet, "F2", "F"+totx.srowx, styleV)
+		xl.SetCellStyle(regsheet, "G2", "H"+totx.srowx, styleV2L)
+		xl.SetCellStyle(regsheet, "I2", "I"+totx.srowx, styleV)
+
+		xl.SetCellStyle(noksheet, "A2", "A"+totx.srowx, styleV3)
+
 	}
-
-	xl.SetCellStyle(regsheet, "A2", "A"+totx.srowx, styleV2)
-	xl.SetCellStyle(regsheet, "B2", "C"+totx.srowx, styleV2L)
-	xl.SetCellStyle(regsheet, "D2", "D"+totx.srowx, styleV)
-	xl.SetCellStyle(regsheet, "E2", "E"+totx.srowx, styleV2L)
-	xl.SetCellStyle(regsheet, "F2", "F"+totx.srowx, styleV)
-	xl.SetCellStyle(regsheet, "G2", "H"+totx.srowx, styleV2L)
-	xl.SetCellStyle(regsheet, "I2", "I"+totx.srowx, styleV)
-
-	xl.SetCellStyle(noksheet, "A2", "A"+totx.srowx, styleV3)
 
 	if cfg.Rally == "rblr" {
 		xl.SetCellStyle(overviewsheet, "K2", "R"+totx.srowx, styleV)
-		xl.SetCellStyle(regsheet, "J2", "J"+totx.srowx, styleV2L)
-		xl.SetCellStyle(regsheet, "K2", "K"+totx.srowx, styleV)
+		if !*summaryOnly {
+			xl.SetCellStyle(regsheet, "J2", "J"+totx.srowx, styleV2L)
+			xl.SetCellStyle(regsheet, "K2", "K"+totx.srowx, styleV)
+		}
 	}
 	if len(cfg.Tshirts) > 0 {
 		n, _ := excelize.ColumnNameToNumber("S")
@@ -1218,9 +1268,11 @@ func writeTotals() {
 
 	//xl.SetCellStyle(overviewsheet, "G2", "J"+totx.srowx, styleV2)
 
-	xl.SetCellStyle(paysheet, "A2", "A"+totx.srowx, styleV3)
-	xl.SetCellStyle(paysheet, "D2", "J"+totx.srowx, styleV)
-	xl.SetCellStyle(paysheet, "K2", "K"+totx.srowx, styleT)
+	if !*summaryOnly {
+		xl.SetCellStyle(paysheet, "A2", "A"+totx.srowx, styleV3)
+		xl.SetCellStyle(paysheet, "D2", "J"+totx.srowx, styleV)
+		xl.SetCellStyle(paysheet, "K2", "K"+totx.srowx, styleT)
+	}
 
 	totx.srow++ // Leave a gap before totals
 
@@ -1270,7 +1322,7 @@ func writeTotals() {
 	}
 
 	// Shop totals
-	if includeShopTab {
+	if includeShopTab && !*summaryOnly {
 		ncol, _ = excelize.ColumnNameToNumber("D")
 
 		if *safemode {
@@ -1306,22 +1358,26 @@ func writeTotals() {
 
 		// Riders
 		xcol, _ = excelize.ColumnNumberToName(ncol)
-		xl.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 		moneytot = tot.NumRiders * cfg.Riderfee
-		xl.SetCellInt(paysheet, xcol+srowt, moneytot)
+		if !*summaryOnly {
+			xl.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
+			xl.SetCellInt(paysheet, xcol+srowt, moneytot)
+		}
 		ncol++
 
 		// Pillions
 		xcol, _ = excelize.ColumnNumberToName(ncol)
-		xl.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 		moneytot = tot.NumPillions * cfg.Pillionfee
-		xl.SetCellInt(paysheet, xcol+srowt, moneytot)
+		if !*summaryOnly {
+			xl.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
+			xl.SetCellInt(paysheet, xcol+srowt, moneytot)
+		}
 		ncol++
 
 		// T-shirts
 		xcol, _ = excelize.ColumnNumberToName(ncol)
 		moneytot = tot.NumTshirts * cfg.Tshirtcost
-		if num_tshirt_sizes > 0 {
+		if num_tshirt_sizes > 0 && !*summaryOnly {
 			xl.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 			xl.SetCellInt(paysheet, xcol+srowt, moneytot)
 		}
@@ -1330,7 +1386,7 @@ func writeTotals() {
 		// Patches
 		xcol, _ = excelize.ColumnNumberToName(ncol)
 		moneytot = tot.NumPatches * cfg.Patchcost
-		if cfg.Patchavail {
+		if cfg.Patchavail && !*summaryOnly {
 			xl.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 			xl.SetCellInt(paysheet, xcol+srowt, moneytot)
 		}
@@ -1341,7 +1397,7 @@ func writeTotals() {
 		// Sponsorship
 		xcol, _ = excelize.ColumnNumberToName(ncol)
 		moneytot = tot.TotMoneySponsor
-		if cfg.Sponsorship {
+		if cfg.Sponsorship && !*summaryOnly {
 			xl.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 			xl.SetCellInt(paysheet, xcol+srowt, moneytot)
 		}
@@ -1349,63 +1405,75 @@ func writeTotals() {
 
 		// Total received
 		xcol, _ = excelize.ColumnNumberToName(ncol)
-		xl.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
 		moneytot = tot.TotMoneyMainPaypal + tot.TotMoneyCashPaypal
-		xl.SetCellInt(paysheet, xcol+srowt, moneytot)
+		if !*summaryOnly {
+			xl.SetCellStyle(paysheet, xcol+srowt, xcol+srowt, styleT)
+			xl.SetCellInt(paysheet, xcol+srowt, moneytot)
+		}
 		ncol++
 
 	} else {
 		for _, c := range "DEFGHIJKL" {
 			ff := "sum(" + string(c) + "2:" + string(c) + totx.srowx + ")"
-			xl.SetCellFormula(paysheet, string(c)+strconv.Itoa(totx.srow), "if("+ff+"=0,\"\","+ff+")")
-			xl.SetCellStyle(paysheet, string(c)+strconv.Itoa(totx.srow), string(c)+strconv.Itoa(totx.srow), styleT)
+			if !*summaryOnly {
+				xl.SetCellFormula(paysheet, string(c)+strconv.Itoa(totx.srow), "if("+ff+"=0,\"\","+ff+")")
+				xl.SetCellStyle(paysheet, string(c)+strconv.Itoa(totx.srow), string(c)+strconv.Itoa(totx.srow), styleT)
+			}
 		}
 	}
 	xl.SetActiveSheet(0)
 	xl.SetCellValue(overviewsheet, "A1", "No.")
-	xl.SetCellValue(noksheet, "A1", "No.")
-	xl.SetCellValue(paysheet, "A1", "No.")
-	xl.SetCellValue(chksheet, "A1", "No.")
-	xl.SetCellValue(regsheet, "A1", "No.")
+	if !*summaryOnly {
+		xl.SetCellValue(noksheet, "A1", "No.")
+		xl.SetCellValue(paysheet, "A1", "No.")
+		xl.SetCellValue(chksheet, "A1", "No.")
+		xl.SetCellValue(regsheet, "A1", "No.")
+	}
 	xl.SetColWidth(overviewsheet, "A", "A", 5)
-	xl.SetColWidth(noksheet, "A", "A", 5)
-	xl.SetColWidth(paysheet, "A", "A", 5)
-	xl.SetColWidth(regsheet, "A", "A", 5)
+	if !*summaryOnly {
+		xl.SetColWidth(noksheet, "A", "A", 5)
+		xl.SetColWidth(paysheet, "A", "A", 5)
+		xl.SetColWidth(regsheet, "A", "A", 5)
 
-	if includeShopTab {
-		xl.SetCellValue(shopsheet, "A1", "No.")
-		xl.SetColWidth(shopsheet, "A", "A", 5)
-		xl.SetCellValue(shopsheet, "B1", "Rider(first)")
-		xl.SetCellValue(shopsheet, "C1", "Rider(last)")
-		xl.SetColWidth(shopsheet, "B", "I", 12)
+		if includeShopTab {
+			xl.SetCellValue(shopsheet, "A1", "No.")
+			xl.SetColWidth(shopsheet, "A", "A", 5)
+			xl.SetCellValue(shopsheet, "B1", "Rider(first)")
+			xl.SetCellValue(shopsheet, "C1", "Rider(last)")
+			xl.SetColWidth(shopsheet, "B", "I", 12)
+		}
 	}
 
 	xl.SetColWidth(overviewsheet, "B", "D", 1)
-	xl.SetColWidth(regsheet, "B", "C", 12)
 
-	xl.SetColWidth(regsheet, "D", "D", 5)
-	xl.SetColWidth(regsheet, "E", "E", 20)
-	xl.SetColWidth(regsheet, "F", "F", 5)
-	xl.SetColWidth(regsheet, "G", "G", 30)
-	xl.SetColWidth(regsheet, "H", "H", 10)
-	xl.SetColWidth(regsheet, "I", "I", 5)
-	xl.SetColWidth(regsheet, "J", "J", 10)
-	xl.SetColWidth(regsheet, "K", "K", 5)
+	if !*summaryOnly {
+		xl.SetColWidth(regsheet, "B", "C", 12)
 
-	xl.SetCellValue(regsheet, "B1", "Rider(first)")
-	xl.SetCellValue(regsheet, "C1", "Rider(last)")
-	xl.SetCellValue(regsheet, "D1", "✓")
-	xl.SetCellValue(paysheet, "B1", "Rider(first)")
-	xl.SetCellValue(paysheet, "C1", "Rider(last)")
-	xl.SetCellValue(chksheet, "B1", "Rider(first)")
-	xl.SetCellValue(chksheet, "C1", "Rider(last)")
-	//xl.SetCellValue(chksheet, "D1", "Bike")
-	xl.SetCellValue(regsheet, "E1", "Pillion")
-	xl.SetCellValue(regsheet, "F1", "✓")
-	xl.SetCellValue(chksheet, "D1", "Odo")
-	xl.SetCellValue(chksheet, "E1", "Time")
+		xl.SetColWidth(regsheet, "D", "D", 5)
+		xl.SetColWidth(regsheet, "E", "E", 20)
+		xl.SetColWidth(regsheet, "F", "F", 5)
+		xl.SetColWidth(regsheet, "G", "G", 30)
+		xl.SetColWidth(regsheet, "H", "H", 10)
+		xl.SetColWidth(regsheet, "I", "I", 5)
+		xl.SetColWidth(regsheet, "J", "J", 10)
+		xl.SetColWidth(regsheet, "K", "K", 5)
 
-	if cfg.Rally == "rblr" {
+		xl.SetCellValue(regsheet, "B1", "Rider(first)")
+		xl.SetCellValue(regsheet, "C1", "Rider(last)")
+		xl.SetCellValue(regsheet, "D1", "✓")
+		xl.SetCellValue(paysheet, "B1", "Rider(first)")
+		xl.SetCellValue(paysheet, "C1", "Rider(last)")
+		xl.SetCellValue(chksheet, "B1", "Rider(first)")
+		xl.SetCellValue(chksheet, "C1", "Rider(last)")
+		//xl.SetCellValue(chksheet, "D1", "Bike")
+		xl.SetCellValue(regsheet, "E1", "Pillion")
+		xl.SetCellValue(regsheet, "F1", "✓")
+		xl.SetCellValue(chksheet, "D1", "Odo")
+		xl.SetCellValue(chksheet, "E1", "Time")
+
+	}
+
+	if cfg.Rally == "rblr" && !*summaryOnly {
 		//xl.SetCellValue(chksheet, "E1", "Route")
 		xl.SetCellValue(regsheet, "J1", "Route")
 		xl.SetCellValue(regsheet, "K1", "✓")
@@ -1413,56 +1481,65 @@ func writeTotals() {
 
 	//xl.SetCellValue(chksheet, "H1", "Notes")
 
-	xl.SetCellValue(paysheet, "D1", "Entry")
-	xl.SetCellValue(paysheet, "E1", "Pillion")
-	xl.SetCellValue(regsheet, "G1", "Bike")
-	xl.SetCellValue(regsheet, "H1", "Reg")
-	xl.SetCellValue(regsheet, "I1", "✓")
-	if len(cfg.Tshirts) > 0 {
-		xl.SetCellValue(paysheet, "F1", "T-shirts")
+	if !*summaryOnly {
+
+		xl.SetCellValue(paysheet, "D1", "Entry")
+		xl.SetCellValue(paysheet, "E1", "Pillion")
+		xl.SetCellValue(regsheet, "G1", "Bike")
+		xl.SetCellValue(regsheet, "H1", "Reg")
+		xl.SetCellValue(regsheet, "I1", "✓")
+		if len(cfg.Tshirts) > 0 {
+			xl.SetCellValue(paysheet, "F1", "T-shirts")
+		}
+		if cfg.Patchavail {
+			xl.SetCellValue(paysheet, "G1", "Patches")
+		}
+		if cfg.Sponsorship {
+			xl.SetCellValue(paysheet, "H1", cfg.Fundsonday)
+			xl.SetCellValue(paysheet, "I1", "Total Sponsorship")
+		}
+		//xl.SetCellValue(paysheet, "K1", "+Cash")
+		xl.SetCellValue(paysheet, "J1", "Total received")
+		xl.SetCellValue(paysheet, "K1", " !!!")
+		xl.SetColWidth(paysheet, "B", "B", 12)
+		xl.SetColWidth(paysheet, "C", "C", 12)
+		xl.SetColWidth(paysheet, "D", "G", 8)
+		xl.SetColWidth(paysheet, "H", "J", 15)
+		xl.SetColWidth(paysheet, "J", "J", 15)
+		xl.SetColWidth(paysheet, "K", "K", 15)
+
 	}
-	if cfg.Patchavail {
-		xl.SetCellValue(paysheet, "G1", "Patches")
-	}
-	if cfg.Sponsorship {
-		xl.SetCellValue(paysheet, "H1", cfg.Fundsonday)
-		xl.SetCellValue(paysheet, "I1", "Total Sponsorship")
-	}
-	//xl.SetCellValue(paysheet, "K1", "+Cash")
-	xl.SetCellValue(paysheet, "J1", "Total received")
-	xl.SetCellValue(paysheet, "K1", " !!!")
-	xl.SetColWidth(paysheet, "B", "B", 12)
-	xl.SetColWidth(paysheet, "C", "C", 12)
-	xl.SetColWidth(paysheet, "D", "G", 8)
-	xl.SetColWidth(paysheet, "H", "J", 15)
-	xl.SetColWidth(paysheet, "J", "J", 15)
-	xl.SetColWidth(paysheet, "K", "K", 15)
 
 	xl.SetCellValue(overviewsheet, "B1", "Rider(first)")
 	xl.SetCellValue(overviewsheet, "C1", "Rider(last)")
 	xl.SetColWidth(overviewsheet, "B", "C", 12)
 
-	xl.SetColWidth(chksheet, "B", "C", 15)
-	xl.SetColWidth(chksheet, "D", "E", 20)
-	//xl.SetColWidth(chksheet, "F", "G", 10)
-	//xl.SetColWidth(chksheet, "H", "H", 40)
+	if !*summaryOnly {
+		xl.SetColWidth(chksheet, "B", "C", 15)
+		xl.SetColWidth(chksheet, "D", "E", 20)
+		//xl.SetColWidth(chksheet, "F", "G", 10)
+		//xl.SetColWidth(chksheet, "H", "H", 40)
+	}
 
 	xl.SetColWidth(overviewsheet, "D", "D", 8) // Rider IBA
 
-	xl.SetCellValue(noksheet, "B1", "Rider(first)")
-	xl.SetCellValue(noksheet, "C1", "Rider(last)")
-	xl.SetColWidth(noksheet, "B", "C", 12)
-	xl.SetColWidth(noksheet, "D", "D", 15)
+	if !*summaryOnly {
+		xl.SetCellValue(noksheet, "B1", "Rider(first)")
+		xl.SetCellValue(noksheet, "C1", "Rider(last)")
+		xl.SetColWidth(noksheet, "B", "C", 12)
+		xl.SetColWidth(noksheet, "D", "D", 15)
 
-	xl.SetCellValue(noksheet, "D1", "Mobile")
-	xl.SetCellValue(noksheet, "E1", "Contact name")
-	xl.SetCellValue(noksheet, "F1", "Relationship")
-	xl.SetCellValue(noksheet, "G1", "Contact number")
-	xl.SetCellValue(noksheet, "H1", "Rider email")
+		xl.SetCellValue(noksheet, "D1", "Mobile")
+		xl.SetCellValue(noksheet, "E1", "Contact name")
+		xl.SetCellValue(noksheet, "F1", "Relationship")
+		xl.SetCellValue(noksheet, "G1", "Contact number")
+		xl.SetCellValue(noksheet, "H1", "Rider email")
 
-	xl.SetColWidth(noksheet, "E", "G", 20)
-	xl.SetColWidth(noksheet, "F", "F", 12)
-	xl.SetColWidth(noksheet, "H", "H", 32)
+		xl.SetColWidth(noksheet, "E", "G", 20)
+		xl.SetColWidth(noksheet, "F", "F", 12)
+		xl.SetColWidth(noksheet, "H", "H", 32)
+
+	}
 
 	xl.SetCellValue(overviewsheet, "D1", "IBA #")
 	xl.SetCellValue(overviewsheet, "E1", strings.Title(cfg.Novice))
@@ -1506,7 +1583,7 @@ func writeTotals() {
 		xl.SetColWidth(overviewsheet, overview_patch_column, overview_patch_column, 3)
 		xl.SetCellValue(overviewsheet, overview_patch_column+"1", " Patches")
 	}
-	if includeShopTab {
+	if includeShopTab && !*summaryOnly {
 		if len(cfg.Tshirts) > 0 {
 			n, _ := excelize.ColumnNameToNumber("D")
 			for i := 0; i < len(cfg.Tshirts); i++ {
@@ -1520,9 +1597,10 @@ func writeTotals() {
 	}
 
 	xl.SetRowHeight(overviewsheet, 1, 70)
-	xl.SetRowHeight(noksheet, 1, 20)
-	xl.SetRowHeight(paysheet, 1, 70)
-
+	if !*summaryOnly {
+		xl.SetRowHeight(noksheet, 1, 20)
+		xl.SetRowHeight(paysheet, 1, 70)
+	}
 	sort.Slice(tot.Bikes, func(i, j int) bool { return tot.Bikes[i].Make < tot.Bikes[j].Make })
 	//fmt.Printf("%v\n", bikes)
 	totx.srow = 2
