@@ -104,6 +104,39 @@ func EntrantHeaders() []string {
 	return res
 }
 
+func EntrantHeadersGmail() []string {
+
+	res := []string{"Name", "Given Name", "Additional Name", "Family Name",
+		"Yomi Name", "Given Name Yomi", "Additional Name Yomi", "Family Name Yomi",
+		"Name Prefix", "Name Suffix", "Initials", "Nickname", "Short Name", "Maiden Name",
+		"Birthday", "Gender", "Location", "Billing Information",
+		"Directory Server", "Mileage", "Occupation", "Hobby", "Sensitivity", "Priority",
+		"Subject", "Notes", "Language", "Photo", "Group Membership",
+		"E-mail 1 - Type", "E-mail 1 - Value", "E-mail 2 - Type", "E-mail 2 - Value", "Website 1 - Type", "Website 1 - Value"}
+
+	return res
+}
+
+func Entrant2Gmail(e Entrant) []string {
+
+	var res []string
+	res = append(res, e.RiderFirst+" "+e.RiderLast)
+	res = append(res, e.RiderFirst)
+	res = append(res, "")
+	res = append(res, e.RiderLast)
+	for i := 0; i < 24; i++ {
+		res = append(res, "")
+	}
+	res = append(res, cfg.Rally+cfg.Year) // Group membership
+	res = append(res, "*")                // Email type
+	res = append(res, e.Email)
+	for i := 0; i < 4; i++ {
+		res = append(res, "")
+	}
+	return res
+
+}
+
 func Entrant2Strings(e Entrant) []string {
 
 	te := reflect.ValueOf(e)

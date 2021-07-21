@@ -39,12 +39,13 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", true, "Safe mode avoid formulas, no live updating")
 var livemode *bool = flag.Bool("live", false, "Self-updating, live mode")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
+var expGmail *string = flag.String("gmail", "", "Path to CSV output for Gmail")
 var ridesdb *string = flag.String("rd", "", "Path of rides database for lookup")
 var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA members")
 var summaryOnly *bool = flag.Bool("summary", true, "Produce Summary/overview tabs only")
 var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 
-const apptitle = "IBAUK Reglist v1.9\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.10\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -113,8 +114,11 @@ var db *sql.DB
 var includeShopTab bool
 var xl *excelize.File
 var exportingCSV bool
+var exportingGmail bool
 var csvF *os.File
 var csvW *csv.Writer
+var csvFGmail *os.File
+var csvGmail *csv.Writer
 var num_tshirt_sizes int
 var totTShirts [max_tshirt_sizes]int = [max_tshirt_sizes]int{0}
 
@@ -324,6 +328,7 @@ func init() {
 	}
 
 	exportingCSV = *expReport != ""
+	exportingGmail = *expGmail != ""
 
 	// This needs to be at least as big as the number of sizes declared
 	num_tshirt_sizes = len(cfg.Tshirts)
@@ -382,8 +387,14 @@ func init() {
 
 func initExportCSV() {
 	csvF = makeFile(*expReport)
-	csvW = makeCSVFile(csvF)
+	csvW = makeCSVFile(csvF, false)
 	fmt.Printf("Exporting CSV to %v\n", *expReport)
+}
+
+func initExportGmail() {
+	csvFGmail = makeFile(*expGmail)
+	csvGmail = makeCSVFile(csvFGmail, true)
+	fmt.Printf("Exporting Gmail CSV to %v\n", *expGmail)
 }
 
 func initSpreadsheet() {
@@ -498,13 +509,19 @@ func main() {
 		initExportCSV()
 		defer csvF.Close()
 	}
+	if exportingGmail {
+		initExportGmail()
+		defer csvFGmail.Close()
+	}
 
 	mainloop()
 
 	if exportingCSV {
 		csvW.Flush()
 	}
-
+	if exportingGmail {
+		csvGmail.Flush()
+	}
 	fmt.Printf("%v entrants written\n", tot.NumRiders)
 
 	writeTotals()
@@ -1010,6 +1027,9 @@ func mainloop() {
 
 		if exportingCSV && !isWithdrawn && !isCancelled {
 			csvW.Write(Entrant2Strings(e))
+		}
+		if exportingGmail && !isWithdrawn && !isCancelled {
+			csvGmail.Write(Entrant2Gmail(e))
 		}
 
 	} // End reading loop
@@ -1636,10 +1656,14 @@ func makeFile(csvname string) *os.File {
 
 }
 
-func makeCSVFile(f *os.File) *csv.Writer {
+func makeCSVFile(f *os.File, gmail bool) *csv.Writer {
 
 	writer := csv.NewWriter(f)
-	writer.Write(EntrantHeaders())
+	if gmail {
+		writer.Write(EntrantHeadersGmail())
+	} else {
+		writer.Write(EntrantHeaders())
+	}
 	return writer
 }
 
