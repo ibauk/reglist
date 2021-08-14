@@ -624,6 +624,7 @@ func mainloop() {
 		e.RiderFirst = properName(RiderFirst)
 		e.RiderLast = properName(RiderLast)
 		if isWithdrawn {
+			fmt.Printf("Rider %v %v is withdrawn\n", e.RiderFirst, e.RiderLast)
 			e.RiderLast += " (PROV)"
 			continue
 		}
