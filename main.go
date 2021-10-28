@@ -45,7 +45,7 @@ var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA
 var summaryOnly *bool = flag.Bool("summary", true, "Produce Summary/overview tabs only")
 var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 
-const apptitle = "IBAUK Reglist v1.10\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.11\nCopyright (c) 2021 Bob Stammers\n\n"
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -400,6 +400,10 @@ func initExportGmail() {
 func initSpreadsheet() {
 
 	xl = excelize.NewFile()
+
+	if filepath.Ext(*xlsName) == "" {
+		*xlsName = *xlsName + ".xlsx"
+	}
 
 	fmt.Printf("Creating %v\n", *xlsName)
 

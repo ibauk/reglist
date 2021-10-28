@@ -280,35 +280,48 @@ func lookupIBAMemberWeb(iba string) (string, string) {
 
 }
 
+func validateIBAnumber(viba *string, vlabel, vfirst, vlast, vemail string) {
+
+	var sname, remail, riba string
+
+	if *viba != "" {
+
+		if lookupOnline {
+			sname, remail = lookupIBAMemberWeb(*viba)
+		} else {
+			sname, remail = lookupIBAMember(*viba)
+		}
+		if sname != "" { // a record was found with that proffered number
+			if !strings.EqualFold(sname, vlast) {
+				fmt.Printf("%v %v %v, IBA %v doesn't match %v %v\n", vlabel, vfirst, vlast, *viba, sname, remail)
+			}
+			return
+		}
+
+	}
+
+	// No match using IBA number so let's try the name
+	if lookupOnline {
+		riba, remail = lookupIBAWeb(vfirst, vlast)
+	} else {
+		riba, remail = lookupIBA(vfirst, vlast)
+	}
+	if riba != "" && riba != "0" { // Found an IBA number
+		fmt.Printf("%v %v %v %v %v is IBA %v %v\n", vlabel, vfirst, vlast, *viba, vemail, riba, remail)
+		*viba = riba
+		return
+	}
+	if *viba != "" {
+		fmt.Printf("%v %v %v is not IBA %v\n", vlabel, vfirst, vlast, *viba)
+	}
+
+}
+
 func LookupIBANumbers(e *Entrant) {
 
-	var riba, remail, sname, piba, pemail string
+	validateIBAnumber(&e.RiderIBA, "Rider", e.RiderFirst, e.RiderLast, e.Email)
+	if e.PillionFirst != "" && e.PillionLast != "" {
+		validateIBAnumber(&e.PillionIBA, "Pillion", e.PillionFirst, e.PillionLast, "")
+	}
 
-	if e.RiderIBA == "" {
-		if lookupOnline {
-			riba, remail = lookupIBAWeb(e.RiderFirst, e.RiderLast)
-		} else {
-			riba, remail = lookupIBA(e.RiderFirst, e.RiderLast)
-		}
-		if riba != "" {
-			fmt.Printf("Rider %v %v (%v) is IBA %v (%v)\n", e.RiderFirst, e.RiderLast, e.Email, riba, remail)
-			e.RiderIBA = riba
-		}
-	} else {
-		if lookupOnline {
-			sname, remail = lookupIBAMemberWeb(e.RiderIBA)
-		} else {
-			sname, remail = lookupIBAMember(e.RiderIBA)
-		}
-		if !strings.EqualFold(sname, e.RiderLast) {
-			fmt.Printf("Rider %v %v, IBA %v doesn't match %v (%v)\n", e.RiderFirst, e.RiderLast, e.RiderIBA, sname, remail)
-		}
-	}
-	if e.PillionFirst != "" && e.PillionLast != "" && e.PillionIBA == "" {
-		piba, pemail = lookupIBAWeb(e.PillionFirst, e.PillionLast)
-		if piba != "" {
-			fmt.Printf("Pillion %v %v (%v) is IBA %v (%v)\n", e.PillionFirst, e.PillionLast, "", piba, pemail)
-			e.PillionIBA = piba
-		}
-	}
 }
