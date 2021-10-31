@@ -56,3 +56,7 @@ defaultre: (?i)tbc|tba|to be advised|to be confirmed|unknown
 
 # URL of live Rides database lookup script
 livedburl: https://ironbutt.co.uk/rd/lookup.php
+
+# Maximum number of chars for phone numbers
+maxphonechars: 20
+

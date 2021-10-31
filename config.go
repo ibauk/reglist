@@ -14,6 +14,7 @@ type Words struct {
 	DefaultBike  string   `yaml:"defaultbike"`
 	DefaultRE    string   `yaml:"defaultre"`
 	LiveDBURL    string   `yaml:"livedburl"`
+	MaxPhone     int      `yaml:"maxphonechars"`
 }
 
 // NewWords returns the word lists
@@ -21,6 +22,7 @@ func NewWords() (*Words, error) {
 
 	configPath := "reglist.yml"
 	words := &Words{}
+	words.MaxPhone = 20
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return words, err // Empty so no cleansing will happen

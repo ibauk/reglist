@@ -948,13 +948,13 @@ func mainloop() {
 
 		if !*summaryOnly {
 			// NOK List
-			xl.SetCellValue(noksheet, "D"+totx.srowx, Mobile)
+			xl.SetCellValue(noksheet, "D"+totx.srowx, trimPhone(Mobile))
 			xl.SetCellStyle(noksheet, "B"+totx.srowx, "H"+totx.srowx, styleV2L)
 
 			if !isCancelled {
 				xl.SetCellValue(noksheet, "E"+totx.srowx, properName(NokName))
 				xl.SetCellValue(noksheet, "F"+totx.srowx, properName(NokRelation))
-				xl.SetCellValue(noksheet, "G"+totx.srowx, NokNumber)
+				xl.SetCellValue(noksheet, "G"+totx.srowx, trimPhone(NokNumber))
 				if NokMobileClash {
 					xl.SetCellStyle(noksheet, "G"+totx.srowx, "G"+totx.srowx, styleCancel)
 				}
@@ -1060,6 +1060,18 @@ func markCancelledEntrants() {
 		}
 	}
 
+}
+
+func trimPhone(tel string) string {
+
+	var res string
+
+	if len(tel) > words.MaxPhone && words.MaxPhone > 0 {
+		res = tel[:words.MaxPhone]
+	} else {
+		res = tel
+	}
+	return res
 }
 
 // setTabFormats sets the page headers to repeat when printed and
