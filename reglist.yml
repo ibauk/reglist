@@ -40,11 +40,11 @@ specialnames:
   - McNeil
 
 # A list of tokens used in bike descriptions used for proper capitalisation
-bikewords: ["Adventure", "Africa", "BMW", "BSA", "cc", "DCT", "DL","DL1000", "DVT",
+bikewords: ["Adventure", "Africa", "BMW", "BSA", "CBF", "cc", "DCT", "DL","DL1000", "DVT",
 		"Ducati", "ER6F", "ER6N", "Explorer", 
-		"FJR", "FZ6", "GL1500", "GL1800", "Goldwing", "GS", "GSA", "GT", "GTR", "Harley-Davidson", "Honda", "Kawasaki",
+		"FJR", "FZ6", "GL1500", "GL1800", "Goldwing", "GS", "GS1200", "GSA", "GSF", "GT", "GTR", "Harley-Davidson", "Honda", "Kawasaki",
 		"KLE", "KTM", "LC", "MV", "N", "Norton", "R", "R1200GSA", "RS", "RT", "SE", "Sprint", "ST", "SX", 
-    "Suzuki", "Tracer", "Triumph", "TVS",
+    "Suzuki", "Tracer", "Triumph", "Trophy", "TVS",
 		"Twin", "Varadero", "Versys", "VFR", "V-Strom", "VTR", "XC", "XRT",
     "Yamagata", "Yamaha", "YZF-R125"]
 

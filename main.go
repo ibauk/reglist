@@ -44,8 +44,14 @@ var ridesdb *string = flag.String("rd", "", "Path of rides database for lookup")
 var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA members")
 var summaryOnly *bool = flag.Bool("summary", true, "Produce Summary/overview tabs only")
 var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
+var showusage *bool = flag.Bool("?", false, "Show this help")
 
-const apptitle = "IBAUK Reglist v1.11\nCopyright (c) 2021 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.12\nCopyright (c) 2022 Bob Stammers\n\n"
+const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
+using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
+the records presented in various useful ways and, optionally, a CSV containing the enhanced
+data in a format suitable for input to a ScoreMaster database.
+`
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
@@ -277,7 +283,17 @@ func formatSheet(sheetName string, portrait bool) {
 
 func init() {
 
+	flag.Usage = func() {
+		w := flag.CommandLine.Output()
+		fmt.Fprintf(w, "%v\n", apptitle)
+		fmt.Fprintf(w, "%v\n", progdesc)
+		flag.PrintDefaults()
+	}
 	flag.Parse()
+	if *showusage {
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	fmt.Print(apptitle)
 
@@ -1638,7 +1654,7 @@ func writeTotals() {
 		xl.SetRowHeight(noksheet, 1, 20)
 		xl.SetRowHeight(paysheet, 1, 70)
 	}
-	sort.Slice(tot.Bikes, func(i, j int) bool { return tot.Bikes[i].Make < tot.Bikes[j].Make })
+	sort.Slice(tot.Bikes, func(i, j int) bool { return tot.Bikes[i].Num > tot.Bikes[j].Num })
 	//fmt.Printf("%v\n", bikes)
 	totx.srow = 2
 	ntot := 0
