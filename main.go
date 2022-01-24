@@ -1588,9 +1588,10 @@ func writeTotals() {
 		xl.SetCellValue(noksheet, "G1", "Contact number")
 		xl.SetCellValue(noksheet, "H1", "Rider email")
 
-		xl.SetColWidth(noksheet, "E", "G", 20)
+		xl.SetColWidth(noksheet, "E", "E", 20)
 		xl.SetColWidth(noksheet, "F", "F", 12)
-		xl.SetColWidth(noksheet, "H", "H", 32)
+		xl.SetColWidth(noksheet, "G", "G", 24)
+		xl.SetColWidth(noksheet, "H", "H", 28)
 
 	}
 

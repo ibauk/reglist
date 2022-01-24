@@ -58,5 +58,5 @@ defaultre: (?i)tbc|tba|to be advised|to be confirmed|unknown
 livedburl: https://ironbutt.co.uk/rd/lookup.php
 
 # Maximum number of chars for phone numbers
-maxphonechars: 20
+maxphonechars: 24
 
