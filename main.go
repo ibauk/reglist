@@ -46,7 +46,7 @@ var summaryOnly *bool = flag.Bool("summary", true, "Produce Summary/overview tab
 var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 
-const apptitle = "IBAUK Reglist v1.12\nCopyright (c) 2022 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.13\nCopyright (c) 2022 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -703,15 +703,15 @@ func mainloop() {
 		}
 
 		if e.RiderFirst+" "+e.RiderLast == e.NokName {
-			fmt.Printf("Rider %v is the emergency contact (%v)\n", e.NokName, e.NokRelation)
+			fmt.Printf("*** Rider %v is the emergency contact (%v)\n", e.NokName, e.NokRelation)
 			NokRiderClash = true
 		} else if e.PillionFirst+" "+e.PillionLast == e.NokName {
-			fmt.Printf("Pillion %v %v is the emergency contact (%v)\n", e.PillionFirst, e.PillionLast, e.NokRelation)
+			fmt.Printf("*** Pillion %v %v is the emergency contact (%v)\n", e.PillionFirst, e.PillionLast, e.NokRelation)
 			NokPillionClash = true
 		}
 
 		if strings.ReplaceAll(e.Phone, " ", "") == strings.ReplaceAll(e.NokPhone, " ", "") {
-			fmt.Printf("Rider %v %v has the same mobile as emergency contact %v\n", e.RiderFirst, e.RiderLast, e.Phone)
+			fmt.Printf("*** Rider %v %v has the same mobile as emergency contact %v\n", e.RiderFirst, e.RiderLast, e.Phone)
 			NokMobileClash = true
 		}
 
@@ -1654,7 +1654,12 @@ func writeTotals() {
 		xl.SetRowHeight(noksheet, 1, 20)
 		xl.SetRowHeight(paysheet, 1, 70)
 	}
-	sort.Slice(tot.Bikes, func(i, j int) bool { return tot.Bikes[i].Num > tot.Bikes[j].Num })
+	sort.Slice(tot.Bikes, func(i, j int) bool {
+		if tot.Bikes[i].Num == tot.Bikes[j].Num {
+			return strings.Compare(tot.Bikes[i].Make, tot.Bikes[j].Make) < 0
+		}
+		return tot.Bikes[i].Num > tot.Bikes[j].Num
+	})
 	//fmt.Printf("%v\n", bikes)
 	totx.srow = 2
 	ntot := 0

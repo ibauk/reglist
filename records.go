@@ -293,7 +293,7 @@ func validateIBAnumber(viba *string, vlabel, vfirst, vlast, vemail string) {
 		}
 		if sname != "" { // a record was found with that proffered number
 			if !strings.EqualFold(sname, vlast) {
-				fmt.Printf("%v %v %v, IBA %v doesn't match %v %v\n", vlabel, vfirst, vlast, *viba, sname, remail)
+				fmt.Printf("*** %v %v %v, IBA %v doesn't match %v %v\n", vlabel, vfirst, vlast, *viba, sname, remail)
 			}
 			return
 		}
@@ -307,12 +307,12 @@ func validateIBAnumber(viba *string, vlabel, vfirst, vlast, vemail string) {
 		riba, remail = lookupIBA(vfirst, vlast)
 	}
 	if riba != "" && riba != "0" { // Found an IBA number
-		fmt.Printf("%v %v %v %v %v is IBA %v %v\n", vlabel, vfirst, vlast, *viba, vemail, riba, remail)
+		fmt.Printf("*** %v %v %v %v %v is IBA %v %v\n", vlabel, vfirst, vlast, *viba, vemail, riba, remail)
 		*viba = riba
 		return
 	}
 	if *viba != "" {
-		fmt.Printf("%v %v %v is not IBA %v\n", vlabel, vfirst, vlast, *viba)
+		fmt.Printf("*** %v %v %v is not IBA %v\n", vlabel, vfirst, vlast, *viba)
 	}
 
 }
