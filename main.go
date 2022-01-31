@@ -1222,8 +1222,8 @@ func writeTotals() {
 	xl.SetColWidth(totsheet, "E", "E", 15)
 
 	xl.SetCellStyle(totsheet, "A3", "A16", styleRJ)
-	xl.SetCellStyle(totsheet, "E3", "E16", styleRJ)
-	for i := 3; i <= 16; i++ {
+	xl.SetCellStyle(totsheet, "E3", "E19", styleRJ)
+	for i := 3; i <= 19; i++ {
 		xl.SetRowHeight(totsheet, i, 30)
 	}
 	xl.SetCellValue(totsheet, "A3", "Number of riders")
