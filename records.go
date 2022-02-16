@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strings"
 	"time"
@@ -187,12 +188,12 @@ func lookupIBAWeb(first, last string) (string, string) {
 	var lresp LookupResponse
 	var client http.Client
 
-	url := "https://ironbutt.co.uk/rd/lookup.php?f=" + first + "&l=" + last
+	url := "https://ironbutt.co.uk/rd/lookup.php?f=" + url.QueryEscape(first) + "&l=" + url.QueryEscape(last)
 
 	resp, err := client.Get(url)
 	if err != nil {
 		*noLookup = true
-		fmt.Printf("*** Can't access online members database\n")
+		fmt.Printf("*** can't access online members database\n*** %v\n", err)
 		return "", ""
 	}
 	defer resp.Body.Close()
@@ -201,7 +202,7 @@ func lookupIBAWeb(first, last string) (string, string) {
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			*noLookup = true
-			fmt.Printf("*** Can't access online members database\n")
+			fmt.Printf("*** can't access online members database\n*** %v\n", err)
 			return "", ""
 		}
 		//bodyString := string(bodyBytes)
@@ -255,12 +256,12 @@ func lookupIBAMemberWeb(iba string) (string, string) {
 	var lresp LookupResponse
 	var client http.Client
 
-	url := "https://ironbutt.co.uk/rd/lookup.php?i=" + iba
+	url := "https://ironbutt.co.uk/rd/lookup.php?i=" + url.QueryEscape(iba)
 
 	resp, err := client.Get(url)
 	if err != nil {
 		*noLookup = true
-		fmt.Printf("*** Can't access online members database\n")
+		fmt.Printf("*** can't access online members database\n*** %v\n", err)
 		return "", ""
 	}
 	defer resp.Body.Close()
@@ -269,12 +270,14 @@ func lookupIBAMemberWeb(iba string) (string, string) {
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			*noLookup = true
-			fmt.Printf("*** Can't access online members database\n")
+			fmt.Printf("*** Can't access online members database %v\n", err)
 			return "", ""
 		}
 		//bodyString := string(bodyBytes)
 		json.Unmarshal(bodyBytes, &lresp)
 		//fmt.Printf("%v\n", bodyString)
+	} else {
+		fmt.Printf("*** member lookup returned HTTP %v [%v]\n", resp.Status, resp.StatusCode)
 	}
 	return lresp.Sname, lresp.Email
 
