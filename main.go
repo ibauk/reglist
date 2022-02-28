@@ -45,8 +45,9 @@ var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA
 var summaryOnly *bool = flag.Bool("summary", true, "Produce Summary/overview tabs only")
 var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
+var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.14\nCopyright (c) 2022 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.15\nCopyright (c) 2022 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -209,6 +210,9 @@ func fixRiderNumbers() {
 
 	oldnew := make(map[string]int, 250) // More than enough
 
+	if *verbose {
+		fmt.Println("dbg: Reading rider numbers")
+	}
 	sqlx := "SELECT EntryId,ifnull(RiderNumber,''),ifnull(withdrawn,'') FROM entrants"
 	rows, err := db.Query(sqlx) // There is scope for renumber alphabetically if desired.
 	if err != nil {
@@ -233,11 +237,14 @@ func fixRiderNumbers() {
 		oldnew[old] = new
 	}
 
+	if *verbose {
+		fmt.Println("dbg: Writing rider numbers")
+	}
 	tx, _ := db.Begin()
 	for old, new := range oldnew {
 		sqlx := "UPDATE entrants SET FinalRiderNumber=" + strconv.Itoa(new) + " WHERE EntryId='" + old + "'"
 		//fmt.Println(sqlx)
-		_, err := db.Exec(sqlx)
+		_, err := tx.Exec(sqlx)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -380,7 +387,7 @@ func init() {
 	if *noLookup {
 		fmt.Printf("Automatic IBA member identification not running\n")
 	} else if *ridesdb == "" {
-		fmt.Printf("IBA members checked online\n")
+		fmt.Printf("IBA member details being checked online\n")
 	} else {
 		fmt.Printf("Unidentified IBA members looked up using %v\n", *ridesdb)
 	}
@@ -523,7 +530,13 @@ func main() {
 		fixRiderNumbers()
 	}
 
+	if *verbose {
+		fmt.Println("dbg: Initialising spreadsheet")
+	}
 	initSpreadsheet()
+	if *verbose {
+		fmt.Println("dbg: Spreadsheet initialised")
+	}
 
 	if exportingCSV {
 		initExportCSV()
@@ -554,6 +567,20 @@ func main() {
 	if err := xl.SaveAs(*xlsName); err != nil {
 		fmt.Println(err)
 	}
+
+	reportDuplicates()
+}
+
+func reportDuplicates() {
+
+	var name, last string
+
+	dupes, _ := db.Query("SELECT RiderName,RiderLast FROM entrants WHERE Withdrawn Is Null GROUP BY RiderLast, RiderName HAVING Count(EntryID) > 1;")
+	for dupes.Next() {
+		dupes.Scan(&name, &last)
+		fmt.Printf("*** Rider %v %v is entered more than once\n", name, last)
+	}
+
 }
 
 func mainloop() {
@@ -1591,7 +1618,7 @@ func writeTotals() {
 		xl.SetColWidth(noksheet, "E", "E", 20)
 		xl.SetColWidth(noksheet, "F", "F", 12)
 		xl.SetColWidth(noksheet, "G", "G", 24)
-		xl.SetColWidth(noksheet, "H", "H", 28)
+		xl.SetColWidth(noksheet, "H", "H", 33)
 
 	}
 
@@ -1725,6 +1752,7 @@ func loadCSVFile() {
 
 	hdrSkipped := false
 
+	debugCount := 0
 	for {
 		record, err := reader.Read()
 
@@ -1739,6 +1767,12 @@ func loadCSVFile() {
 		if !hdrSkipped {
 			hdrSkipped = true
 			continue
+		}
+
+		debugCount++
+
+		if *verbose {
+			fmt.Printf("dbg: Loading %v\n", debugCount)
 		}
 
 		sqlx := "INSERT INTO entrants ("
@@ -1765,6 +1799,9 @@ func loadCSVFile() {
 	}
 
 	db.Exec("COMMIT")
+	if *verbose {
+		fmt.Println("dbg: Load complete")
+	}
 
 }
 
@@ -1776,6 +1813,10 @@ func makeSQLTable(db *sql.DB) {
 		x = ",RiderNumber"
 	}
 	x += ",FinalRiderNumber"
+
+	if *verbose {
+		fmt.Println("dbg: Initialising database")
+	}
 	db.Exec("PRAGMA foreign_keys=OFF")
 	db.Exec("BEGIN TRANSACTION")
 	_, err := db.Exec("DROP TABLE IF EXISTS entrants")
@@ -1806,6 +1847,9 @@ func makeSQLTable(db *sql.DB) {
 		filepath.Base(*csvName))
 	if err != nil {
 		log.Fatal(err)
+	}
+	if *verbose {
+		fmt.Println("dbg: Database initialised")
 	}
 
 }
