@@ -47,7 +47,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.15\nCopyright (c) 2022 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.16\nCopyright (c) 2022 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -1521,14 +1521,15 @@ func writeTotals() {
 			xl.SetCellValue(shopsheet, "B1", "Rider(first)")
 			xl.SetCellValue(shopsheet, "C1", "Rider(last)")
 			xl.SetColWidth(shopsheet, "B", "I", 12)
+			xl.SetColWidth(shopsheet, "C", "C", 18)
 		}
 	}
 
 	xl.SetColWidth(overviewsheet, "B", "D", 1)
 
 	if !*summaryOnly {
-		xl.SetColWidth(regsheet, "B", "C", 12)
-
+		xl.SetColWidth(regsheet, "B", "B", 12)
+		xl.SetColWidth(regsheet, "C", "C", 18)
 		xl.SetColWidth(regsheet, "D", "D", 5)
 		xl.SetColWidth(regsheet, "E", "E", 20)
 		xl.SetColWidth(regsheet, "F", "F", 5)
@@ -1592,10 +1593,12 @@ func writeTotals() {
 
 	xl.SetCellValue(overviewsheet, "B1", "Rider(first)")
 	xl.SetCellValue(overviewsheet, "C1", "Rider(last)")
-	xl.SetColWidth(overviewsheet, "B", "C", 12)
+	xl.SetColWidth(overviewsheet, "B", "B", 12)
+	xl.SetColWidth(overviewsheet, "C", "C", 18)
 
 	if !*summaryOnly {
-		xl.SetColWidth(chksheet, "B", "C", 15)
+		xl.SetColWidth(chksheet, "B", "B", 15)
+		xl.SetColWidth(chksheet, "C", "C", 18)
 		xl.SetColWidth(chksheet, "D", "E", 20)
 		//xl.SetColWidth(chksheet, "F", "G", 10)
 		//xl.SetColWidth(chksheet, "H", "H", 40)
@@ -1606,7 +1609,8 @@ func writeTotals() {
 	if !*summaryOnly {
 		xl.SetCellValue(noksheet, "B1", "Rider(first)")
 		xl.SetCellValue(noksheet, "C1", "Rider(last)")
-		xl.SetColWidth(noksheet, "B", "C", 12)
+		xl.SetColWidth(noksheet, "B", "B", 10)
+		xl.SetColWidth(noksheet, "C", "C", 14)
 		xl.SetColWidth(noksheet, "D", "D", 15)
 
 		xl.SetCellValue(noksheet, "D1", "Mobile")
@@ -1625,7 +1629,7 @@ func writeTotals() {
 	xl.SetCellValue(overviewsheet, "D1", "IBA #")
 	xl.SetCellValue(overviewsheet, "E1", strings.Title(cfg.Novice))
 	xl.SetCellValue(overviewsheet, "F1", "Pillion")
-	xl.SetColWidth(overviewsheet, "F", "F", 19)
+	xl.SetColWidth(overviewsheet, "F", "F", 16)
 	xl.SetCellValue(overviewsheet, "G1", "IBA #")
 	xl.SetCellValue(overviewsheet, "H1", strings.Title(cfg.Novice))
 
