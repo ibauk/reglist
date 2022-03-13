@@ -1109,10 +1109,15 @@ func trimPhone(tel string) string {
 
 	var res string
 
-	if len(tel) > words.MaxPhone && words.MaxPhone > 0 {
-		res = tel[:words.MaxPhone]
+	telx := strings.ReplaceAll(tel, " ", "")
+	if telx[0:2] == "00" {
+		telx = strings.Replace(telx, "00", "+", 1)
+	}
+
+	if len(telx) > words.MaxPhone && words.MaxPhone > 0 {
+		res = telx[:words.MaxPhone]
 	} else {
-		res = tel
+		res = telx
 	}
 	return res
 }
@@ -1636,7 +1641,7 @@ func writeTotals() {
 	//xl.SetColVisible(overviewsheet, "B:D", false)
 
 	xl.SetCellValue(overviewsheet, "I1", "Make")
-	xl.SetColWidth(overviewsheet, "I", "I", 10)
+	xl.SetColWidth(overviewsheet, "I", "I", 15)
 	xl.SetCellValue(overviewsheet, "J1", "Model")
 	xl.SetColWidth(overviewsheet, "J", "J", 20)
 
@@ -2158,12 +2163,12 @@ func extractMakeModel(bike string) (string, string) {
 	if strings.TrimSpace(bike) == "" {
 		return "", ""
 	}
-	re := regexp.MustCompile(`'*\d*\s*([A-Za-z\-]*)\s*(.*)`)
+	re := regexp.MustCompile(`'*\d*\s*([A-Za-z\-\_]*)\s*(.*)`)
 	sm := re.FindSubmatch([]byte(bike))
 	if len(sm) < 3 {
-		return string(sm[1]), ""
+		return strings.ReplaceAll(string(sm[1]), "_", " "), ""
 	}
-	return string(sm[1]), string(sm[2])
+	return strings.ReplaceAll(string(sm[1]), "_", " "), strings.ReplaceAll(string(sm[2]), "_", " ")
 
 }
 

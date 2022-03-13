@@ -1,5 +1,5 @@
 name: bbl
-year: 21
+year: 22
 afields: ["EntryId","Date_Created","Created_By","Date_Updated","Updated_By",
 					"IP_Address","Last_Page_Accessed","Completion_Status","RiderName","RiderLast","RiderIBANumber",
 					"NoviceRider",
@@ -36,6 +36,6 @@ patchcost: 0
 sponsorship: false
 fundsonday: ''
 novice: rookie
-add2entrantid: -1
+add2entrantid: 0
 entrantorder: FinalRiderNumber
 
