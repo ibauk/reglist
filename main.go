@@ -173,6 +173,32 @@ func properBike(x string) string {
 	return x
 }
 
+// properMake2 fixes two word Makes such as 'Royal Enfield' and 'Moto Guzzi'
+// by replacing the intervening space with an underscore, replaced later in
+// processing
+func properMake2(x string) string {
+
+	var specials = words.Bikewords
+	var xwords = strings.Fields(x)
+
+	if len(xwords) < 2 {
+		return x
+	}
+	var make2 = strings.Join(xwords[0:2], " ")
+	var model2 = strings.Join(xwords[2:], " ")
+
+	for _, e := range specials {
+		if strings.EqualFold(strings.Replace(e, "-", " ", 1), make2) {
+			var res strings.Builder
+			res.WriteString(strings.Replace(e, " ", "_", 1))
+			res.WriteString(" ")
+			res.WriteString(model2)
+			return res.String()
+		}
+	}
+	return x
+}
+
 func properName(x string) string {
 
 	var specials = words.Specialnames
@@ -651,6 +677,7 @@ func mainloop() {
 
 		//fmt.Printf("[ %v ] = %v \n", hasPillionVal, hasPillion)
 
+		Bike = properMake2(Bike)
 		Bike = properBike(Bike)
 		if words.DefaultRE != "" {
 			re := regexp.MustCompile(words.DefaultRE)
@@ -1539,7 +1566,7 @@ func writeTotals() {
 		xl.SetColWidth(regsheet, "E", "E", 20)
 		xl.SetColWidth(regsheet, "F", "F", 5)
 		xl.SetColWidth(regsheet, "G", "G", 30)
-		xl.SetColWidth(regsheet, "H", "H", 10)
+		xl.SetColWidth(regsheet, "H", "H", 16)
 		xl.SetColWidth(regsheet, "I", "I", 5)
 		xl.SetColWidth(regsheet, "J", "J", 10)
 		xl.SetColWidth(regsheet, "K", "K", 5)
