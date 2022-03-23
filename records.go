@@ -295,7 +295,8 @@ func validateIBAnumber(viba *string, vlabel, vfirst, vlast, vemail string) {
 			sname, remail = lookupIBAMember(*viba)
 		}
 		if sname != "" { // a record was found with that proffered number
-			if !strings.EqualFold(sname, vlast) {
+			w := strings.Split(vlast, " ") // Same split as lookup.php
+			if !strings.EqualFold(sname, w[len(w)-1]) {
 				fmt.Printf("*** %v %v %v, IBA %v doesn't match %v %v\n", vlabel, vfirst, vlast, *viba, sname, remail)
 			}
 			return
