@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/xuri/excelize/v2"
 )
 
 var rally *string = flag.String("cfg", "", "Which rally is this (yml file)")
@@ -47,7 +47,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.16\nCopyright (c) 2022 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.17\nCopyright (c) 2022 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -504,7 +504,7 @@ func initSpreadsheet() {
 	if !*summaryOnly {
 		xl.SetCellStyle(regsheet, "A1", "I1", styleH2)
 		if cfg.Rally == "rblr" {
-			xl.SetCellStyle(regsheet, "J1", "K1", styleH2)
+			xl.SetCellStyle(regsheet, "J1", "L1", styleH2)
 		}
 		xl.SetCellStyle(noksheet, "A1", "H1", styleH2L)
 
@@ -1003,8 +1003,8 @@ func mainloop() {
 		}
 		if !*summaryOnly {
 			if Paid == "Unpaid" {
-				xl.SetCellValue(paysheet, "K"+totx.srowx, " UNPAID")
-				xl.SetCellStyle(paysheet, "K"+totx.srowx, "K"+totx.srowx, styleW)
+				//xl.SetCellValue(paysheet, "K"+totx.srowx, " UNPAID")
+				//xl.SetCellStyle(paysheet, "K"+totx.srowx, "K"+totx.srowx, styleW)
 			} else if !*safemode {
 				ff := "J" + totx.srowx + "-(sum(D" + totx.srowx + ":G" + totx.srowx + ")+I" + totx.srowx + ")"
 				xl.SetCellFormula(paysheet, "K"+totx.srowx, "if("+ff+"=0,\"\","+ff+")")
@@ -1366,7 +1366,7 @@ func writeTotals() {
 		xl.SetCellStyle(overviewsheet, "K2", "R"+totx.srowx, styleV)
 		if !*summaryOnly {
 			xl.SetCellStyle(regsheet, "J2", "J"+totx.srowx, styleV2L)
-			xl.SetCellStyle(regsheet, "K2", "K"+totx.srowx, styleV)
+			xl.SetCellStyle(regsheet, "K2", "L"+totx.srowx, styleV)
 		}
 	}
 	if len(cfg.Tshirts) > 0 {
@@ -1383,7 +1383,7 @@ func writeTotals() {
 	if !*summaryOnly {
 		xl.SetCellStyle(paysheet, "A2", "A"+totx.srowx, styleV3)
 		xl.SetCellStyle(paysheet, "D2", "J"+totx.srowx, styleV)
-		xl.SetCellStyle(paysheet, "K2", "K"+totx.srowx, styleT)
+		xl.SetCellStyle(paysheet, "K2", "K"+totx.srowx, styleV)
 	}
 
 	totx.srow++ // Leave a gap before totals
@@ -1563,13 +1563,14 @@ func writeTotals() {
 		xl.SetColWidth(regsheet, "B", "B", 12)
 		xl.SetColWidth(regsheet, "C", "C", 18)
 		xl.SetColWidth(regsheet, "D", "D", 5)
-		xl.SetColWidth(regsheet, "E", "E", 20)
+		xl.SetColWidth(regsheet, "E", "E", 16)
 		xl.SetColWidth(regsheet, "F", "F", 5)
 		xl.SetColWidth(regsheet, "G", "G", 30)
 		xl.SetColWidth(regsheet, "H", "H", 16)
 		xl.SetColWidth(regsheet, "I", "I", 5)
 		xl.SetColWidth(regsheet, "J", "J", 10)
-		xl.SetColWidth(regsheet, "K", "K", 5)
+		xl.SetColWidth(regsheet, "K", "K", 3)
+		xl.SetColWidth(regsheet, "L", "L", 8)
 
 		xl.SetCellValue(regsheet, "B1", "Rider(first)")
 		xl.SetCellValue(regsheet, "C1", "Rider(last)")
@@ -1590,6 +1591,7 @@ func writeTotals() {
 		//xl.SetCellValue(chksheet, "E1", "Route")
 		xl.SetCellValue(regsheet, "J1", "Route")
 		xl.SetCellValue(regsheet, "K1", "✓")
+		xl.SetCellValue(regsheet, "L1", "Inits")
 	}
 
 	//xl.SetCellValue(chksheet, "H1", "Notes")
@@ -1613,13 +1615,13 @@ func writeTotals() {
 		}
 		//xl.SetCellValue(paysheet, "K1", "+Cash")
 		xl.SetCellValue(paysheet, "J1", "Total received")
-		xl.SetCellValue(paysheet, "K1", " !!!")
+		xl.SetCellValue(paysheet, "K1", "JustGiving")
 		xl.SetColWidth(paysheet, "B", "B", 12)
 		xl.SetColWidth(paysheet, "C", "C", 12)
 		xl.SetColWidth(paysheet, "D", "G", 8)
-		xl.SetColWidth(paysheet, "H", "J", 15)
+		xl.SetColWidth(paysheet, "H", "J", 12)
 		xl.SetColWidth(paysheet, "J", "J", 15)
-		xl.SetColWidth(paysheet, "K", "K", 15)
+		xl.SetColWidth(paysheet, "K", "K", 30)
 
 	}
 

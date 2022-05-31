@@ -44,10 +44,10 @@ bikewords: ["Adventure", "Africa", "Blackbird", "BMW", "BSA", "CBF", "cc", "CRF1
     "DCT", "Deauville", "DL","DL1000", "DVT",
 		"Ducati", "ER6F", "ER6N", "Explorer", "F800GS",
 		"FJR", "FJS", "FZ6", "GL1500", "GL1800", "Goldwing", "GS", "GS1150", "GS1200", "GSA", "GSF", "GT", "GTR", 
-    "Harley-Davidson", "Honda", "Kawasaki",
+    "Harley-Davidson", "Honda", "Indian", "Kawasaki",
 		"KLE", "KTM", "LC", "Monkey", "Moto Guzzi", "MV", "N", "Norton", "NT", "NT700", "R", "R1", "R1150", "R1200", 
     "R1200GSA", "R1250GSA",
-    "Royal Enfield", "RS", "RT", "S1000XR", "SE", "Speed", "Sprint", "ST", "ST1100", "Street", "SX", 
+    "Royal Enfield", "RS", "RT", "S1000XR", "Scout", "SE", "Speed", "Sprint", "ST", "ST1100", "Street", "SX", 
     "Suzuki", "Tiger", "Tracer", "Triple", "Triumph", "Trophy", "TVS",
 		"Twin", "Varadero", "Versys", "VFR", "V-Strom", "VTR", "XC", "XJ600N", "XRT",
     "Yamagata", "Yamaha", "YZF-R125", "Z125"]
