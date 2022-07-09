@@ -63,10 +63,12 @@ type Entrant struct {
 	RiderFirst       string
 	RiderLast        string
 	RiderIBA         string
+	RiderRBL         string
 	RiderNovice      string
 	PillionFirst     string
 	PillionLast      string
 	PillionIBA       string
+	PillionRBL       string
 	PillionNovice    string
 	Bike             string
 	BikeMake         string

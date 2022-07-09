@@ -47,7 +47,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.17\nCopyright (c) 2022 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.18\nCopyright (c) 2022 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -84,8 +84,8 @@ var chksheet string = "Carpark"
 var regsheet string = "Registration"
 var shopsheet string = "Shop"
 
-const sqlx_rblr = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
-ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),
+const sqlx_rblr = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),ifnull(RiderRBL,''),
+ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),ifnull(PillionRBL,''),
 ifnull(BikeMakeModel,''),round(ifnull(MilesTravelledToSquires,'0')),
 ifnull(FreeCamping,''),ifnull(WhichRoute,'A'),
 ifnull(Tshirt1,''),ifnull(Tshirt2,''),ifnull(Patches,'0'),ifnull(Cash,'0'),
@@ -478,7 +478,7 @@ func initSpreadsheet() {
 	renameSheet(&totsheet, "Stats")
 
 	// Set heading styles
-	xl.SetCellStyle(overviewsheet, "A1", overview_patch_column+"1", styleH2)
+	xl.SetCellStyle(overviewsheet, "A1", overview_patch_column+"1", styleH2L)
 	if cfg.Rally == "rblr" {
 		xl.SetCellStyle(overviewsheet, "K1", "R1", styleH)
 		xl.SetCellStyle(overviewsheet, "E1", "E1", styleH)
@@ -622,6 +622,7 @@ func mainloop() {
 		var RiderFirst string
 		var RiderLast string
 		var RiderIBA string
+		var RiderRBL, PillionRBL string
 		var PillionFirst, PillionLast, PillionIBA string
 		var Bike, Make, Model string
 		var Miles string
@@ -653,7 +654,7 @@ func mainloop() {
 
 		var err2 error
 		if cfg.Rally == "rblr" {
-			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
+			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &RiderRBL, &PillionFirst, &PillionLast, &PillionIBA, &PillionRBL,
 				&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
 				&odocounts, &e.BikeReg, &miles2squires, &freecamping,
@@ -703,6 +704,7 @@ func mainloop() {
 			continue
 		}
 		e.RiderIBA = fmtIBA(RiderIBA)
+		e.RiderRBL = fmtRBL(RiderRBL)
 		e.RiderNovice = fmtNoviceYN(novicerider)
 		e.PillionFirst = properName(PillionFirst)
 		if hasPillion && PillionLast == "" {
@@ -711,6 +713,7 @@ func mainloop() {
 			e.PillionLast = properName(PillionLast)
 		}
 		e.PillionIBA = fmtIBA(PillionIBA)
+		e.PillionRBL = fmtRBL(PillionRBL)
 		e.PillionNovice = fmtNoviceYN(novicepillion)
 		e.BikeMake = Make
 		e.BikeModel = Model
@@ -1627,6 +1630,7 @@ func writeTotals() {
 
 	xl.SetCellValue(overviewsheet, "B1", "Rider(first)")
 	xl.SetCellValue(overviewsheet, "C1", "Rider(last)")
+	xl.SetColWidth(overviewsheet, "A", "A", 4)
 	xl.SetColWidth(overviewsheet, "B", "B", 12)
 	xl.SetColWidth(overviewsheet, "C", "C", 18)
 
@@ -1638,7 +1642,7 @@ func writeTotals() {
 		//xl.SetColWidth(chksheet, "H", "H", 40)
 	}
 
-	xl.SetColWidth(overviewsheet, "D", "D", 8) // Rider IBA
+	xl.SetColWidth(overviewsheet, "D", "D", 6) // Rider IBA
 
 	if !*summaryOnly {
 		xl.SetCellValue(noksheet, "B1", "Rider(first)")
@@ -1663,7 +1667,7 @@ func writeTotals() {
 	xl.SetCellValue(overviewsheet, "D1", "IBA #")
 	xl.SetCellValue(overviewsheet, "E1", strings.Title(cfg.Novice))
 	xl.SetCellValue(overviewsheet, "F1", "Pillion")
-	xl.SetColWidth(overviewsheet, "F", "F", 16)
+	xl.SetColWidth(overviewsheet, "F", "F", 14)
 	xl.SetCellValue(overviewsheet, "G1", "IBA #")
 	xl.SetCellValue(overviewsheet, "H1", strings.Title(cfg.Novice))
 
@@ -2208,6 +2212,17 @@ func fmtIBA(x string) string {
 	}
 	return strings.ReplaceAll(x, ".0", "")
 
+}
+
+func fmtRBL(x string) string {
+
+	if x == "No Legion association" {
+		return "N"
+	} else if x == "I am a Legion Rider (RBLR) member" {
+		return "R"
+	} else {
+		return "L"
+	}
 }
 
 func fmtNovice(x string) string {
