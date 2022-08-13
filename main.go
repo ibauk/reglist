@@ -27,6 +27,8 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/xuri/excelize/v2"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var rally *string = flag.String("cfg", "", "Which rally is this (yml file)")
@@ -47,7 +49,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.18\nCopyright (c) 2022 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.19\nCopyright (c) 2022 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -199,6 +201,12 @@ func properMake2(x string) string {
 	return x
 }
 
+func stringsTitle(x string) string {
+
+	caser := cases.Title(language.English)
+	return caser.String(x)
+
+}
 func properName(x string) string {
 
 	var specials = words.Specialnames
@@ -211,7 +219,7 @@ func properName(x string) string {
 			var wx = w[i]
 			if words.Propernames {
 				wx = strings.ToLower(w[i])
-				w[i] = strings.Title(wx)
+				w[i] = stringsTitle(wx)
 			}
 			for _, wy := range specials {
 				if strings.EqualFold(wx, wy) {
@@ -1005,9 +1013,9 @@ func mainloop() {
 
 		}
 		if !*summaryOnly {
-			if Paid == "Unpaid" {
-				//xl.SetCellValue(paysheet, "K"+totx.srowx, " UNPAID")
-				//xl.SetCellStyle(paysheet, "K"+totx.srowx, "K"+totx.srowx, styleW)
+			if Paid == "Unpaid" && false {
+				xl.SetCellValue(paysheet, "K"+totx.srowx, " UNPAID")
+				xl.SetCellStyle(paysheet, "K"+totx.srowx, "K"+totx.srowx, styleW)
 			} else if !*safemode {
 				ff := "J" + totx.srowx + "-(sum(D" + totx.srowx + ":G" + totx.srowx + ")+I" + totx.srowx + ")"
 				xl.SetCellFormula(paysheet, "K"+totx.srowx, "if("+ff+"=0,\"\","+ff+")")
@@ -1665,11 +1673,12 @@ func writeTotals() {
 	}
 
 	xl.SetCellValue(overviewsheet, "D1", "IBA #")
-	xl.SetCellValue(overviewsheet, "E1", strings.Title(cfg.Novice))
+	xl.SetCellValue(overviewsheet, "E1", stringsTitle(cfg.Novice))
 	xl.SetCellValue(overviewsheet, "F1", "Pillion")
-	xl.SetColWidth(overviewsheet, "F", "F", 14)
+	xl.SetColWidth(overviewsheet, "F", "F", 16)
+	xl.SetColWidth(overviewsheet, "G", "G", 6)
 	xl.SetCellValue(overviewsheet, "G1", "IBA #")
-	xl.SetCellValue(overviewsheet, "H1", strings.Title(cfg.Novice))
+	xl.SetCellValue(overviewsheet, "H1", stringsTitle(cfg.Novice))
 
 	//xl.SetColVisible(overviewsheet, "B:D", false)
 

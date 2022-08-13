@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -201,7 +201,7 @@ func lookupIBAWeb(first, last string) (string, string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			*noLookup = true
 			fmt.Printf("*** can't access online members database\n*** %v\n", err)
@@ -269,7 +269,7 @@ func lookupIBAMemberWeb(iba string) (string, string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			*noLookup = true
 			fmt.Printf("*** Can't access online members database %v\n", err)
