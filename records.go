@@ -190,7 +190,7 @@ func lookupIBAWeb(first, last string) (string, string) {
 	var lresp LookupResponse
 	var client http.Client
 
-	url := "https://ironbutt.co.uk/rd/lookup.php?f=" + url.QueryEscape(first) + "&l=" + url.QueryEscape(last)
+	url := words.LiveDBURL + "?f=" + url.QueryEscape(first) + "&l=" + url.QueryEscape(last)
 
 	resp, err := client.Get(url)
 	if err != nil {
@@ -258,7 +258,7 @@ func lookupIBAMemberWeb(iba string) (string, string) {
 	var lresp LookupResponse
 	var client http.Client
 
-	url := "https://ironbutt.co.uk/rd/lookup.php?i=" + url.QueryEscape(iba)
+	url := words.LiveDBURL + "?i=" + url.QueryEscape(iba)
 
 	resp, err := client.Get(url)
 	if err != nil {
