@@ -64,6 +64,7 @@ type Config struct {
 	EntrantOrder  string   `yaml:"entrantorder"`
 	ReportWeekly  bool     `yaml:"weekly"`
 	RenumberCSV   bool     `yaml:"renumber"`
+	CsvUrl        string   `yaml:"csvurl"`
 }
 
 // NewConfig returns a new decoded Config struct

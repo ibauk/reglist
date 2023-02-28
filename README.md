@@ -89,6 +89,10 @@ Further fine control over the output is achieved by the use of configuration fil
 **afields:** / **rfields**
 >These hold arrays of fieldnames reflecting the order of input fields in the incoming .CSV. The fieldnames are the names used within Reglist and may differ from those used in the .CSV, only the order matters, not the names. **afields** refers to the files downloaded from the form administration facility of Wufoo and **rfields** refers to the files exported via the corresponding Wufoo report. The two files contain the same information but in their infinite wisdom Wufoo have seen fit to place the metadata before the data in one and after in the other.
 
+**csvurl:** *url*
+>Url of the online CSV for entrant data for this rally. If present, this is always used and the commandline **-csv *filename*** is ignored.
+
+
 **tshirtsizes:** 
 >An array of sizes available.
 

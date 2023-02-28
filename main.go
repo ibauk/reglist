@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -49,7 +50,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.20\nCopyright (c) 2023 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.21\nCopyright (c) 2023 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -559,7 +560,10 @@ func setPagePane(sheet string) {
 
 func main() {
 
-	if !*noCSV {
+	if cfg.CsvUrl != "" {
+		downloadCSVFile()
+		fixRiderNumbers()
+	} else if !*noCSV {
 		loadCSVFile()
 		fixRiderNumbers()
 	}
@@ -676,7 +680,7 @@ func mainloop() {
 				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate, &withdrawn, &hasPillionVal)
 		}
 		if err2 != nil {
-			log.Fatal(err2)
+			log.Fatalf("mainloop/err2 %v\n", err2)
 		}
 
 		isFOC = Paid == "Refunded"
@@ -1784,6 +1788,83 @@ func makeCSVFile(f *os.File, gmail bool) *csv.Writer {
 	return writer
 }
 
+func downloadCSVFile() {
+
+	if *verbose {
+		fmt.Printf("Downloading from %v\n", cfg.CsvUrl)
+	}
+	resp, err := http.Get(cfg.CsvUrl)
+	if err != nil {
+		fmt.Printf("Error downloading %v\n", err)
+		return
+	}
+
+	defer resp.Body.Close()
+
+	reader := csv.NewReader(resp.Body)
+
+	makeSQLTable(db)
+
+	hdrSkipped := false
+
+	debugCount := 0
+
+	for {
+		record, err := reader.Read()
+
+		// if we hit end of file (EOF) or another unexpected error
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Printf("\nDownloading CSV - Record - %v - Error: %v\n", record, err)
+			if !hdrSkipped {
+				fmt.Printf("Is %v a valid URL?\nHas the Wufoo report been flagged as Public?\n\n", cfg.CsvUrl)
+				os.Exit(-4)
+			}
+			return
+		}
+
+		if !hdrSkipped {
+			hdrSkipped = true
+			continue
+		}
+
+		debugCount++
+
+		if *verbose {
+			fmt.Printf("dbg: Loading %v\n", debugCount)
+		}
+
+		sqlx := "INSERT INTO entrants ("
+		sqlx += dbfieldsx
+		sqlx += ") VALUES("
+
+		for i := 0; i < len(record); i++ {
+			if i > 0 {
+				sqlx += ","
+			}
+			if len(record[i]) == 0 || record[i] == "NULL" {
+				sqlx += "null"
+			} else {
+				sqlx += "\"" + record[i] + "\"" // Use " rather than ' as the data might contain single quotes anyway
+			}
+		}
+		sqlx += ");"
+		_, err = db.Exec(sqlx)
+		if err != nil {
+			db.Exec("COMMIT")
+			fmt.Println(sqlx)
+			log.Fatal(err)
+		}
+	}
+
+	db.Exec("COMMIT")
+	if *verbose {
+		fmt.Println("dbg: Load complete")
+	}
+
+}
+
 func loadCSVFile() {
 
 	file, err := os.Open(*csvName)
@@ -1873,6 +1954,10 @@ func makeSQLTable(db *sql.DB) {
 	_, err := db.Exec("DROP TABLE IF EXISTS entrants")
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if *verbose {
+		fmt.Printf("Making entrants => %v\n", dbfieldsx)
 	}
 	_, err = db.Exec("CREATE TABLE entrants (" + dbfieldsx + x + " INTEGER)")
 	if err != nil {

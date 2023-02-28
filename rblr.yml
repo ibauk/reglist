@@ -16,6 +16,9 @@ afields: ["EntryId","Date_Created","Created_By","Date_Updated","Updated_By",
 					"Withdrawn","Sponsorshipmoney",
 					"Patches","Cash",
 					"PaymentStatus","PaymentTotal","Payment_Currency","Payment_Confirmation","Payment_Merchant"]
+
+csvurl:		https://britbuttrally.wufoo.com/export/report/rblr-2023.csv
+
 rfields: ["EntryId","RiderName","RiderLast","RiderIBANumber","RiderRBL",
 					"NoviceRider",
 					"HasPillion","PillionName","PillionLast","PillionIBANumber",
