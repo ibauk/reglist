@@ -422,7 +422,11 @@ func init() {
 	if *noLookup {
 		fmt.Printf("Automatic IBA member identification not running\n")
 	} else if *ridesdb == "" {
-		fmt.Printf("IBA member details being checked online %v\n", words.LiveDBURL)
+		fmt.Print("IBA member details being checked online")
+		if *verbose {
+			fmt.Printf(" %v", words.LiveDBURL)
+		}
+		fmt.Println()
 	} else {
 		fmt.Printf("Unidentified IBA members looked up using %v\n", *ridesdb)
 	}
@@ -711,9 +715,11 @@ func mainloop() {
 		e.RiderFirst = properName(RiderFirst)
 		e.RiderLast = properName(RiderLast)
 		if isWithdrawn {
-			fmt.Printf("Rider %v %v is withdrawn\n", e.RiderFirst, e.RiderLast)
+			fmt.Printf("    Rider %v %v [#%v] is withdrawn\n", e.RiderFirst, e.RiderLast, e.Entrantid)
 			e.RiderLast += " (PROV)"
 			continue
+		} else if *verbose && Paid != "Completed" {
+			fmt.Printf("    Rider %v %v [#%v] has payment status = %v\n", e.RiderFirst, e.RiderLast, e.Entrantid, Paid)
 		}
 		e.RiderIBA = fmtIBA(RiderIBA)
 		e.RiderRBL = fmtRBL(RiderRBL)
@@ -765,22 +771,22 @@ func mainloop() {
 
 		//fmt.Printf("%v (%v) %v (%v)\n", RiderFirst, T1, RiderLast, T2)
 		if isFOC {
-			fmt.Printf("Rider %v %v has Paid=%v and is therefore FOC\n", e.RiderFirst, e.RiderLast, Paid)
+			fmt.Printf("Rider %v %v [#%v] has Paid=%v and is therefore FOC\n", e.RiderFirst, e.RiderLast, e.Entrantid, Paid)
 		}
 		if isCancelled {
-			fmt.Printf("Rider %v %v has Paid=%v\n", e.RiderFirst, e.RiderLast, Paid)
+			fmt.Printf("Rider %v %v [#%v] has Paid=%v\n", e.RiderFirst, e.RiderLast, e.Entrantid, Paid)
 		}
 
 		if e.RiderFirst+" "+e.RiderLast == e.NokName {
-			fmt.Printf("*** Rider %v is the emergency contact (%v)\n", e.NokName, e.NokRelation)
+			fmt.Printf("*** Rider %v [#%v] is the emergency contact (%v)\n", e.NokName, e.Entrantid, e.NokRelation)
 			NokRiderClash = true
 		} else if e.PillionFirst+" "+e.PillionLast == e.NokName {
-			fmt.Printf("*** Pillion %v %v is the emergency contact (%v)\n", e.PillionFirst, e.PillionLast, e.NokRelation)
+			fmt.Printf("*** Pillion %v %v [#%v] is the emergency contact (%v)\n", e.PillionFirst, e.PillionLast, e.Entrantid, e.NokRelation)
 			NokPillionClash = true
 		}
 
 		if strings.ReplaceAll(e.Phone, " ", "") == strings.ReplaceAll(e.NokPhone, " ", "") {
-			fmt.Printf("*** Rider %v %v has the same mobile as emergency contact %v\n", e.RiderFirst, e.RiderLast, e.Phone)
+			fmt.Printf("*** Rider %v %v [#%v] has the same mobile as emergency contact %v\n", e.RiderFirst, e.RiderLast, e.Entrantid, e.Phone)
 			NokMobileClash = true
 		}
 
