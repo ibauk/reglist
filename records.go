@@ -18,10 +18,12 @@ type Bikemake struct {
 }
 
 type Entrystats struct {
-	Month     string
-	Total     int
-	NumIBA    int
-	NumNovice int
+	Month        string
+	Total        int
+	NumIBA       int
+	NumNovice    int
+	NumRBLRiders int
+	NumRBLBranch int
 }
 
 type Totals struct {
@@ -29,6 +31,8 @@ type Totals struct {
 	NumPillions        int
 	NumNovices         int
 	NumIBAMembers      int
+	NumRBLBranch       int
+	NumRBLRiders       int
 	NumCamping         int
 	NumPatches         int
 	NumTshirts         int

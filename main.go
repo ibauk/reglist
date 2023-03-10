@@ -37,7 +37,7 @@ var csvName *string = flag.String("csv", "entrants.csv", "Path to CSV downloaded
 var csvReport *bool = flag.Bool("rpt", true, "CSV is downloaded from Wufoo report")
 var csvAdmin *bool = flag.Bool("adm", false, "CSV is downloaded from Wufoo administrator page")
 var sqlName *string = flag.String("sql", "entrantdata.db", "Path to SQLite database")
-var xlsName *string = flag.String("xls", "reglist.xlsx", "Path to output XLSX")
+var xlsName *string = flag.String("xls", "", "Path to output XLSX, defaults to cfg")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
 var safemode *bool = flag.Bool("safe", true, "Safe mode avoid formulas, no live updating")
 var livemode *bool = flag.Bool("live", false, "Self-updating, live mode")
@@ -50,7 +50,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.21\nCopyright (c) 2023 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.22\nCopyright (c) 2023 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -463,6 +463,9 @@ func initSpreadsheet() {
 
 	xl = excelize.NewFile()
 
+	if *xlsName == "" {
+		*xlsName = cfg.Rally + cfg.Year
+	}
 	if filepath.Ext(*xlsName) == "" {
 		*xlsName = *xlsName + ".xlsx"
 	}
@@ -793,7 +796,7 @@ func mainloop() {
 		npatches := intval(Patches)
 		totx.srowx = strconv.Itoa(totx.srow)
 
-		ebym := Entrystats{ReportingPeriod(e.EnteredDate), 1, 0, 0}
+		ebym := Entrystats{ReportingPeriod(e.EnteredDate), 1, 0, 0, 0, 0}
 
 		if !isCancelled || !cancelsLoseOut {
 			for i := 0; i < num_tshirt_sizes; i++ {
@@ -842,6 +845,23 @@ func mainloop() {
 				tot.NumIBAMembers++
 			}
 
+			if e.RiderRBL == "R" {
+				tot.NumRBLRiders++
+				ebym.NumRBLRiders++
+			}
+			if e.RiderRBL == "L" {
+				tot.NumRBLBranch++
+				ebym.NumRBLBranch++
+			}
+			if e.PillionRBL == "R" {
+				tot.NumRBLRiders++
+				ebym.NumRBLRiders++
+			}
+			if e.PillionRBL == "L" {
+				tot.NumRBLBranch++
+				ebym.NumRBLBranch++
+			}
+
 			ok = false
 			for i := 0; i < len(tot.EntriesByPeriod); i++ {
 				if tot.EntriesByPeriod[i].Month == ebym.Month {
@@ -849,6 +869,8 @@ func mainloop() {
 					tot.EntriesByPeriod[i].Total += ebym.Total
 					tot.EntriesByPeriod[i].NumIBA += ebym.NumIBA
 					tot.EntriesByPeriod[i].NumNovice += ebym.NumNovice
+					tot.EntriesByPeriod[i].NumRBLBranch += ebym.NumRBLBranch
+					tot.EntriesByPeriod[i].NumRBLRiders += ebym.NumRBLRiders
 				}
 			}
 			if !ok {
@@ -889,7 +911,11 @@ func mainloop() {
 		}
 
 		// Entrant IDs
-		xl.SetCellInt(overviewsheet, "A"+totx.srowx, entrantid)
+		if cfg.Rally == "rblr" {
+			xl.SetCellValue(overviewsheet, "A"+totx.srowx, e.RiderRBL)
+		} else {
+			xl.SetCellInt(overviewsheet, "A"+totx.srowx, entrantid)
+		}
 		if !*summaryOnly {
 			xl.SetCellInt(regsheet, "A"+totx.srowx, entrantid)
 			xl.SetCellInt(noksheet, "A"+totx.srowx, entrantid)
@@ -1081,7 +1107,7 @@ func mainloop() {
 		xl.SetCellValue(overviewsheet, "K"+totx.srowx, Miles)
 
 		if Camp == "Yes" && cfg.Rally == "rblr" && (!isCancelled || !cancelsLoseOut) {
-			xl.SetCellInt(overviewsheet, "L"+totx.srowx, 1)
+			xl.SetCellValue(overviewsheet, "L"+totx.srowx, "Y")
 		}
 		var cols string = "MNOPQR"
 		var col int = 0
@@ -1214,18 +1240,21 @@ func reportEntriesByPeriod() {
 	xl.SetColWidth(totsheet, "G", "G", 2)
 	xl.SetColWidth(totsheet, "I", "K", 5)
 
-	xl.SetCellValue(totsheet, "I2", "Novices")
+	xl.SetCellValue(totsheet, "K2", "Novices")
 	xl.SetCellValue(totsheet, "J2", "IBA members")
-	xl.SetCellValue(totsheet, "K2", "All entries")
+	xl.SetCellValue(totsheet, "L2", "All entries")
+	xl.SetCellValue(totsheet, "I2", "British Legion")
+	//xl.SetCellValue(totsheet, "M2", "RBL others")
 	row := 3
 	for _, p := range tot.EntriesByPeriod {
 		srow := strconv.Itoa(row)
 		md := strings.Split(p.Month, "-")
 		mth := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}[intval(md[0])-1]
 		xl.SetCellValue(totsheet, "H"+srow, mth+" "+md[1])
-		xl.SetCellValue(totsheet, "K"+srow, p.Total)
+		xl.SetCellValue(totsheet, "L"+srow, p.Total)
 		xl.SetCellValue(totsheet, "J"+srow, p.NumIBA)
-		xl.SetCellValue(totsheet, "I"+srow, p.NumNovice)
+		xl.SetCellValue(totsheet, "K"+srow, p.NumNovice)
+		xl.SetCellValue(totsheet, "I"+srow, p.NumRBLRiders+p.NumRBLBranch)
 		row++
 	}
 
@@ -1233,18 +1262,23 @@ func reportEntriesByPeriod() {
 
 	xrow := strconv.Itoa(row - 1)
 	row = 3
-	if true {
-		for i := 0; i < 3; i++ {
-			//srow := strconv.Itoa(row)
-			if i > 0 {
-				fmtx += `,
-			`
-			}
-			ll := "IJK"[i : i+1]
-			fmtx += `{"name":"` + totsheet + `!$` + ll + `$2",	"categories":"` + totsheet + `!$H$3:$H$` + xrow + `","values":"` + totsheet + `!` + ll + `3:` + ll + xrow + `"}`
-			row++
-		}
+	var cols string
+	if cfg.Rally == "rblr" {
+		cols = "IJKL"
+	} else {
+		cols = "JKL"
 	}
+
+	for i := 0; i < len(cols); i++ {
+		if i > 0 {
+			fmtx += `,
+			`
+		}
+		ll := cols[i : i+1]
+		fmtx += `{"name":"` + totsheet + `!$` + ll + `$2",	"categories":"` + totsheet + `!$H$3:$H$` + xrow + `","values":"` + totsheet + `!` + ll + `3:` + ll + xrow + `"}`
+		row++
+	}
+
 	var reportingperiod string
 	if cfg.ReportWeekly {
 		reportingperiod = "week"
@@ -1285,12 +1319,12 @@ func reportEntriesByPeriod() {
 
 	}`
 
-	err := xl.AddChart(totsheet, "L2", fmtx)
+	err := xl.AddChart(totsheet, "N2", fmtx)
 	if err != nil {
 		fmt.Printf("OMG: %v\n%v\n", err, fmtx)
 	}
 
-	xl.SetColVisible(totsheet, "H:K", false)
+	xl.SetColVisible(totsheet, "H:M", false)
 }
 
 func writeTotals() {
@@ -1301,7 +1335,7 @@ func writeTotals() {
 	xl.SetColWidth(totsheet, "A", "A", 30)
 	xl.SetColWidth(totsheet, "E", "E", 15)
 
-	xl.SetCellStyle(totsheet, "A3", "A16", styleRJ)
+	xl.SetCellStyle(totsheet, "A3", "A18", styleRJ)
 	xl.SetCellStyle(totsheet, "E3", "E19", styleRJ)
 	for i := 3; i <= 19; i++ {
 		xl.SetRowHeight(totsheet, i, 30)
@@ -1311,16 +1345,18 @@ func writeTotals() {
 	xl.SetCellValue(totsheet, "A5", "Number of "+cfg.Novice+"s")
 	xl.SetCellValue(totsheet, "A6", "Number of IBA members")
 	if cfg.Rally == "rblr" {
-		xl.SetCellValue(totsheet, "A7", "Nearest to Squires")
-		xl.SetCellValue(totsheet, "A8", "Furthest from Squires")
-		xl.SetCellValue(totsheet, "A9", "Camping at Squires")
-		xl.SetCellValue(totsheet, "A10", "Funds raised for Poppy Appeal")
-		xl.SetCellValue(totsheet, "A11", "A - North clockwise")
-		xl.SetCellValue(totsheet, "A12", "B - North anti-clockwise")
-		xl.SetCellValue(totsheet, "A13", "C - South clockwise")
-		xl.SetCellValue(totsheet, "A14", "D - South anti-clockwise")
-		xl.SetCellValue(totsheet, "A15", "E - 500 clockwise")
-		xl.SetCellValue(totsheet, "A16", "F - 500 anti-clockwise")
+		xl.SetCellValue(totsheet, "A7", "Number of Legion members")
+		xl.SetCellValue(totsheet, "A8", "of which, RBL Riders")
+		xl.SetCellValue(totsheet, "A9", "Nearest to Squires")
+		xl.SetCellValue(totsheet, "A10", "Furthest from Squires")
+		xl.SetCellValue(totsheet, "A11", "Camping at Squires")
+		xl.SetCellValue(totsheet, "A12", "Funds raised for Poppy Appeal")
+		xl.SetCellValue(totsheet, "A13", "A - North clockwise")
+		xl.SetCellValue(totsheet, "A14", "B - North anti-clockwise")
+		xl.SetCellValue(totsheet, "A15", "C - South clockwise")
+		xl.SetCellValue(totsheet, "A16", "D - South anti-clockwise")
+		xl.SetCellValue(totsheet, "A17", "E - 500 clockwise")
+		xl.SetCellValue(totsheet, "A18", "F - 500 anti-clockwise")
 	}
 
 	xl.SetCellInt(totsheet, "B3", tot.NumRiders)
@@ -1329,13 +1365,15 @@ func writeTotals() {
 	xl.SetCellInt(totsheet, "B6", tot.NumIBAMembers)
 
 	if cfg.Rally == "rblr" {
-		xl.SetCellInt(totsheet, "B7", tot.LoMiles2Squires)
-		xl.SetCellInt(totsheet, "B8", tot.HiMiles2Squires)
-		xl.SetCellInt(totsheet, "B9", tot.NumCamping)
+		xl.SetCellInt(totsheet, "B7", tot.NumRBLBranch+tot.NumRBLRiders)
+		xl.SetCellInt(totsheet, "B8", tot.NumRBLRiders)
+		xl.SetCellInt(totsheet, "B9", tot.LoMiles2Squires)
+		xl.SetCellInt(totsheet, "B10", tot.HiMiles2Squires)
+		xl.SetCellInt(totsheet, "B11", tot.NumCamping)
 		if *safemode {
 
-			xl.SetCellInt(totsheet, "B10", tot.TotMoneySponsor)
-			r := 11
+			xl.SetCellInt(totsheet, "B12", tot.TotMoneySponsor)
+			r := 13
 			for i := 0; i < len(rblr_routes_ridden); i++ {
 				if rblr_routes_ridden[i] > 0 {
 					xl.SetCellInt(totsheet, "B"+strconv.Itoa(r), rblr_routes_ridden[i])
@@ -1343,8 +1381,8 @@ func writeTotals() {
 				r++
 			}
 		} else {
-			xl.SetCellFormula(totsheet, "B10", paysheet+"!I"+strconv.Itoa(totx.srow+1))
-			r := 11
+			xl.SetCellFormula(totsheet, "B12", paysheet+"!I"+strconv.Itoa(totx.srow+1))
+			r := 13
 			c := "MNOPQR"
 			for i := 0; i < len(rblr_routes_ridden); i++ {
 				xl.SetCellFormula(totsheet, "B"+strconv.Itoa(r), overviewsheet+"!"+string(c[i])+strconv.Itoa(totx.srow+1))
@@ -1384,10 +1422,10 @@ func writeTotals() {
 	}
 
 	if cfg.Rally == "rblr" {
-		xl.SetCellStyle(overviewsheet, "K2", "R"+totx.srowx, styleV)
+		xl.SetCellStyle(overviewsheet, "L2", "R"+totx.srowx, styleV)
 		if !*summaryOnly {
 			xl.SetCellStyle(regsheet, "J2", "J"+totx.srowx, styleV2L)
-			xl.SetCellStyle(regsheet, "K2", "L"+totx.srowx, styleV)
+			xl.SetCellStyle(regsheet, "L2", "L"+totx.srowx, styleV)
 		}
 	}
 	if len(cfg.Tshirts) > 0 {
@@ -1409,7 +1447,6 @@ func writeTotals() {
 
 	totx.srow++ // Leave a gap before totals
 
-	// L to X
 	ncol, _ := excelize.ColumnNameToNumber("L")
 	xcol := ""
 	srowt := strconv.Itoa(totx.srow)
@@ -1447,7 +1484,7 @@ func writeTotals() {
 			ncol++
 		}
 	} else {
-		for _, c := range "LMNOPQRSTUVWX" {
+		for _, c := range "NOPQRSTUVWXYZ" {
 			ff := "sum(" + string(c) + "2:" + string(c) + totx.srowx + ")"
 			xl.SetCellFormula(overviewsheet, string(c)+strconv.Itoa(totx.srow), "if("+ff+"=0,\"\","+ff+")")
 			xl.SetCellStyle(overviewsheet, string(c)+strconv.Itoa(totx.srow), string(c)+strconv.Itoa(totx.srow), styleT)
@@ -1555,7 +1592,11 @@ func writeTotals() {
 		}
 	}
 	xl.SetActiveSheet(0)
-	xl.SetCellValue(overviewsheet, "A1", "No.")
+	if cfg.Rally == "rblr" {
+		xl.SetCellValue(overviewsheet, "A1", "BL")
+	} else {
+		xl.SetCellValue(overviewsheet, "A1", "No.")
+	}
 	if !*summaryOnly {
 		xl.SetCellValue(noksheet, "A1", "No.")
 		xl.SetCellValue(paysheet, "A1", "No.")
@@ -1698,11 +1739,12 @@ func writeTotals() {
 	xl.SetColWidth(overviewsheet, "J", "J", 20)
 
 	if cfg.Rally == "rblr" {
-		xl.SetCellValue(overviewsheet, "K1", " Miles to Squires")
-		xl.SetColWidth(overviewsheet, "K", "K", 5)
+		xl.SetCellValue(overviewsheet, "K1", " To Squires")
+		xl.SetColWidth(overviewsheet, "K", "K", 4)
 
 		xl.SetCellValue(overviewsheet, "L1", " Camping")
-		xl.SetColWidth(overviewsheet, "L", "R", 3)
+		xl.SetColWidth(overviewsheet, "L", "L", 2)
+		xl.SetColWidth(overviewsheet, "M", "R", 3)
 
 		xl.SetCellValue(overviewsheet, "M1", rblr_routes[0])
 		xl.SetCellValue(overviewsheet, "N1", rblr_routes[1])
@@ -2316,13 +2358,12 @@ func fmtIBA(x string) string {
 
 func fmtRBL(x string) string {
 
-	if x == "No Legion association" {
-		return "N"
+	if x == "I'm an ordinary Legion member" {
+		return "L"
 	} else if x == "I am a Legion Rider (RBLR) member" {
 		return "R"
-	} else {
-		return "L"
 	}
+	return ""
 }
 
 func fmtNovice(x string) string {
