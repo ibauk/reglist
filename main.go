@@ -1,8 +1,8 @@
 package main
 
 /*
- * This is a quick and dirty, yes really, transformer to create a "Registration list"
- * spreadsheet ready for the RBLR1000.
+ * This is a validator/transformer to create a "Registration list" spreadsheet ready
+ * for the RBLR1000 and IBA scatter rallies.
  *
  * It will be run several times before a "final" version shortly before the ride date.
  *
@@ -37,7 +37,7 @@ var csvName *string = flag.String("csv", "entrants.csv", "Path to CSV downloaded
 var csvReport *bool = flag.Bool("rpt", true, "CSV is downloaded from Wufoo report")
 var csvAdmin *bool = flag.Bool("adm", false, "CSV is downloaded from Wufoo administrator page")
 var sqlName *string = flag.String("sql", "entrantdata.db", "Path to SQLite database")
-var xlsName *string = flag.String("xls", "", "Path to output XLSX, defaults to cfg")
+var xlsName *string = flag.String("xls", "", "Path to output XLSX, defaults to cfg name+year")
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
 var safemode *bool = flag.Bool("safe", true, "Safe mode avoid formulas, no live updating")
 var livemode *bool = flag.Bool("live", false, "Self-updating, live mode")
@@ -54,7 +54,8 @@ const apptitle = "IBAUK Reglist v1.22\nCopyright (c) 2023 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
-data in a format suitable for input to a ScoreMaster database.
+data in a format suitable for input to a ScoreMaster database and, optionally, a CSV suitable for import to
+a Gmail account.
 `
 
 var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
@@ -308,7 +309,7 @@ func formatSheet(sheetName string, portrait bool) {
 	xl.SetPageLayout(
 		sheetName,
 		excelize.PageLayoutOrientation(om),
-		excelize.PageLayoutPaperSize(10),
+		excelize.PageLayoutPaperSize(9), /* xlPaperSizeA4 (10 = xlPaperSizeA4Small!) */
 		excelize.FitToHeight(2),
 		excelize.FitToWidth(2),
 	)
@@ -888,7 +889,7 @@ func mainloop() {
 				if intval(miles2squires) > tot.HiMiles2Squires {
 					tot.HiMiles2Squires = intval(miles2squires)
 				}
-				if freecamping == "Yes" {
+				if fmtCampingYN(freecamping) == "Y" {
 					tot.NumCamping++
 				}
 			}
@@ -2358,9 +2359,9 @@ func fmtIBA(x string) string {
 
 func fmtRBL(x string) string {
 
-	if x == "I'm an ordinary Legion member" {
+	if x == cfg.LegionMember && cfg.LegionMember != "" {
 		return "L"
-	} else if x == "I am a Legion Rider (RBLR) member" {
+	} else if x == cfg.LegionRider && cfg.LegionRider != "" {
 		return "R"
 	}
 	return ""
@@ -2394,12 +2395,10 @@ func fmtOdoKM(x string) string {
 
 func fmtCampingYN(x string) string {
 
-	y := strings.ToUpper(x)
-	if len(y) > 0 && y[0] == 'Y' {
+	if x == cfg.FreeCamping && cfg.FreeCamping != "" {
 		return "Y"
 	}
-	return "N"
-
+	return ""
 }
 
 func ShortMaker(x string) string {

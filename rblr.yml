@@ -49,3 +49,11 @@ add2entrantid: 0
 entrantorder: upper(RiderLast),upper(RiderName)
 weekly: false
 
+# value of RiderRBL, PillionRBL indicating ordinary (not Riders branch) Legion member
+legionmember: "I'm an ordinary Legion member"
+
+# value of RiderRBL, PillionRBL indicating Riders branch Legion member
+legionrider: "I am a Legion Rider (RBLR) member"
+
+# value of FreeCamping indicating that the rider wants free camping at Squires
+freecamping: Yes

@@ -65,6 +65,9 @@ type Config struct {
 	ReportWeekly  bool     `yaml:"weekly"`
 	RenumberCSV   bool     `yaml:"renumber"`
 	CsvUrl        string   `yaml:"csvurl"`
+	LegionMember  string   `yaml:"legionmember"`
+	LegionRider   string   `yaml:"legionrider"`
+	FreeCamping   string   `yaml:"freecamping"`
 }
 
 // NewConfig returns a new decoded Config struct
