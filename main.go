@@ -50,7 +50,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.22\nCopyright (c) 2023 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.23\nCopyright (c) 2023 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -568,12 +568,14 @@ func setPagePane(sheet string) {
 
 func main() {
 
-	if cfg.CsvUrl != "" {
-		downloadCSVFile()
-		fixRiderNumbers()
-	} else if !*noCSV {
-		loadCSVFile()
-		fixRiderNumbers()
+	if !*noCSV {
+		if cfg.CsvUrl != "" {
+			downloadCSVFile()
+			fixRiderNumbers()
+		} else {
+			loadCSVFile()
+			fixRiderNumbers()
+		}
 	}
 
 	if *verbose {
@@ -620,11 +622,15 @@ func main() {
 func reportDuplicates() {
 
 	var name, last string
+	var rex int
 
-	dupes, _ := db.Query("SELECT RiderName,RiderLast FROM entrants WHERE Withdrawn Is Null GROUP BY RiderLast, RiderName HAVING Count(EntryID) > 1;")
+	dupes, err := db.Query("SELECT RiderName,RiderLast,Count(*) FROM entrants WHERE Withdrawn IS NULL GROUP BY Trim(RiderLast), Trim(RiderName) HAVING Count(EntryID) > 1;")
+	if err != nil {
+		panic(err)
+	}
 	for dupes.Next() {
-		dupes.Scan(&name, &last)
-		fmt.Printf("*** Rider %v %v is entered more than once\n", name, last)
+		dupes.Scan(&name, &last, &rex)
+		fmt.Printf("*** Rider %v %v is entered more than once (%v times!)\n", name, last, rex)
 	}
 
 }
@@ -1895,7 +1901,8 @@ func downloadCSVFile() {
 			if len(record[i]) == 0 || record[i] == "NULL" {
 				sqlx += "null"
 			} else {
-				sqlx += "\"" + record[i] + "\"" // Use " rather than ' as the data might contain single quotes anyway
+				//sqlx += "\"" + record[i] + "\"" // Use " rather than ' as the data might contain single quotes anyway
+				sqlx += "'" + strings.ReplaceAll(record[i], "'", "''") + "'"
 			}
 		}
 		sqlx += ");"
@@ -1916,6 +1923,9 @@ func downloadCSVFile() {
 
 func loadCSVFile() {
 
+	if *verbose {
+		fmt.Printf("dbg: loadCSVFile = %v\n", *csvName)
+	}
 	file, err := os.Open(*csvName)
 	// error - if we have one exit as CSV file not right
 	if err != nil {
