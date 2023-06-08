@@ -1297,7 +1297,7 @@ func reportEntriesByPeriod() {
 	"format":
 	{
 		"x_scale": 1.0,
-		"y_scale": 1.0,
+		"y_scale": 1.2,
 		"x_offset": 15,
 		"y_offset": 10,
 		"print_obj": true,
