@@ -33,7 +33,7 @@ import (
 )
 
 var rally *string = flag.String("cfg", "", "Which rally is this (yml file)")
-var csvName *string = flag.String("csv", "entrants.csv", "Path to CSV downloaded from Wufoo")
+var csvName *string = flag.String("csv", "", "Path to CSV downloaded from Wufoo")
 var csvReport *bool = flag.Bool("rpt", true, "CSV is downloaded from Wufoo report")
 var csvAdmin *bool = flag.Bool("adm", false, "CSV is downloaded from Wufoo administrator page")
 var sqlName *string = flag.String("sql", "entrantdata.db", "Path to SQLite database")
@@ -50,7 +50,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.23\nCopyright (c) 2023 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.24\nCopyright (c) 2023 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -99,7 +99,7 @@ FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(Sponsorshipmoney,''),ifnull(Paym
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnull(Registration,''),
 ifnull(MilestravelledToSquires,''),ifnull(FreeCamping,''),
 ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
-ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,''),
+ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),
 ifnull(Date_Created,''),ifnull(Withdrawn,''),ifnull(HasPillion,'')`
 
 const sqlx_rally = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),
@@ -111,7 +111,7 @@ ifnull(NOKName,''),ifnull(NOKNumber,''),ifnull(NOKRelation,''),
 FinalRiderNumber,ifnull(PaymentTotal,''),ifnull(PaymentStatus,''),
 ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnull(Registration,''),
 ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
-ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),ifnull(ao_BCM,''),
+ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),
 ifnull(Date_Created,''),ifnull(Withdrawn,''),ifnull(HasPillion,'')`
 
 var sqlx string
@@ -279,7 +279,9 @@ func fixRiderNumbers() {
 	tx, _ := db.Begin()
 	for old, new := range oldnew {
 		sqlx := "UPDATE entrants SET FinalRiderNumber=" + strconv.Itoa(new) + " WHERE EntryId='" + old + "'"
-		//fmt.Println(sqlx)
+		if *verbose {
+			fmt.Println(sqlx)
+		}
 		_, err := tx.Exec(sqlx)
 		if err != nil {
 			log.Fatal(err)
@@ -569,12 +571,15 @@ func setPagePane(sheet string) {
 func main() {
 
 	if !*noCSV {
-		if cfg.CsvUrl != "" {
+		if *csvName != "" {
+			loadCSVFile()
+			fixRiderNumbers()
+		} else if cfg.CsvUrl != "" {
 			downloadCSVFile()
 			fixRiderNumbers()
 		} else {
-			loadCSVFile()
-			fixRiderNumbers()
+			fmt.Println("No CSV input available")
+			return
 		}
 	}
 
@@ -685,13 +690,13 @@ func mainloop() {
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
 				&odocounts, &e.BikeReg, &miles2squires, &freecamping,
 				&e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate, &withdrawn, &hasPillionVal)
+				&e.Email, &e.Phone, &e.EnteredDate, &withdrawn, &hasPillionVal)
 		} else {
 			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
 				&Bike, &T1, &T2,
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion, &odocounts,
 				&e.BikeReg, &e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.BonusClaimMethod, &e.EnteredDate, &withdrawn, &hasPillionVal)
+				&e.Email, &e.Phone, &e.EnteredDate, &withdrawn, &hasPillionVal)
 		}
 		if err2 != nil {
 			log.Fatalf("mainloop/err2 %v\n", err2)
@@ -1877,6 +1882,8 @@ func downloadCSVFile() {
 				os.Exit(-4)
 			}
 			return
+		} else if *verbose {
+			fmt.Printf("CSV == (%v) %v\n", len(record), record)
 		}
 
 		if !hdrSkipped {

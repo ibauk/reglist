@@ -54,7 +54,7 @@ bikewords: ["Adventure", "Africa", "Bandit", "Blackbird", "BMW", "BSA", "CBF", "
     "Yamagata", "Yamaha", "YZF-R125", "Z125"]
 
 # Use this as bike description if none forthcoming or TBC,etc
-defaultbike: motorbike
+defaultbike: motorcycle
 
 # Replace bike descriptions matching this RE with defaultbike above
 defaultre: (?i)tbc|tba|to be advised|to be confirmed|unknown

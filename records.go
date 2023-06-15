@@ -98,6 +98,14 @@ type Entrant struct {
 	Camping          string
 	Miles2Squires    string
 	EnteredDate      string
+	PEmail           string
+	PPhone           string
+	PAddress1        string
+	PAddress2        string
+	PTown            string
+	PCounty          string
+	PPostcode        string
+	PCountry         string
 }
 
 func EntrantHeaders() []string {
