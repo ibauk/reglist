@@ -50,7 +50,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.24\nCopyright (c) 2023 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.25\nCopyright (c) 2024 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -629,7 +629,7 @@ func reportDuplicates() {
 	var name, last string
 	var rex int
 
-	dupes, err := db.Query("SELECT RiderName,RiderLast,Count(*) FROM entrants WHERE Withdrawn IS NULL GROUP BY Trim(RiderLast), Trim(RiderName) HAVING Count(EntryID) > 1;")
+	dupes, err := db.Query("SELECT RiderName,RiderLast,Count(*) FROM entrants WHERE Withdrawn IS NULL GROUP BY Upper(Trim(RiderLast)), Upper(Trim(RiderName)) HAVING Count(EntryID) > 1;")
 	if err != nil {
 		panic(err)
 	}
@@ -738,7 +738,7 @@ func mainloop() {
 		}
 		e.RiderIBA = fmtIBA(RiderIBA)
 		e.RiderRBL = fmtRBL(RiderRBL)
-		e.RiderNovice = fmtNoviceYN(novicerider)
+		e.RiderNovice = bNoviceYN(novicerider, e.RiderIBA) //fmtNoviceYN(novicerider)
 		e.PillionFirst = properName(PillionFirst)
 		if hasPillion && PillionLast == "" {
 			e.PillionLast = properName(RiderLast)
@@ -747,7 +747,7 @@ func mainloop() {
 		}
 		e.PillionIBA = fmtIBA(PillionIBA)
 		e.PillionRBL = fmtRBL(PillionRBL)
-		e.PillionNovice = fmtNoviceYN(novicepillion)
+		e.PillionNovice = bNoviceYN(novicepillion, e.PillionIBA) // fmtNoviceYN(novicepillion)
 		e.BikeMake = Make
 		e.BikeModel = Model
 		e.OdoKms = fmtOdoKM(odocounts)
@@ -1107,9 +1107,11 @@ func mainloop() {
 
 		xl.SetCellValue(overviewsheet, "F"+totx.srowx, PillionFirst+" "+PillionLast)
 		if cfg.Rally != "rblr" {
-			xl.SetCellValue(overviewsheet, "E"+totx.srowx, fmtNovice(novicerider))
+			//			xl.SetCellValue(overviewsheet, "E"+totx.srowx, fmtNovice(novicerider))
+			xl.SetCellValue(overviewsheet, "E"+totx.srowx, fmtNoviceYb(e.RiderNovice))
 			xl.SetCellValue(overviewsheet, "G"+totx.srowx, fmtIBA(e.PillionIBA))
-			xl.SetCellValue(overviewsheet, "H"+totx.srowx, fmtNovice(novicepillion))
+			//			xl.SetCellValue(overviewsheet, "H"+totx.srowx, fmtNovice(novicepillion))
+			xl.SetCellValue(overviewsheet, "H"+totx.srowx, fmtNoviceYb(e.PillionNovice))
 		}
 		if !isCancelled {
 			xl.SetCellValue(overviewsheet, "I"+totx.srowx, ShortMaker(Make))
@@ -2384,14 +2386,41 @@ func fmtRBL(x string) string {
 	return ""
 }
 
+/*
+*
 func fmtNovice(x string) string {
 
-	if strings.Contains(x, cfg.Novice) {
+		if strings.Contains(x, cfg.Novice) {
+			return "Yes"
+		}
+		return ""
+	}
+
+*
+*/
+func fmtNoviceYb(noviceYN string) string {
+
+	if noviceYN == "Y" {
 		return "Yes"
 	}
 	return ""
 }
 
+// boolean (Y/N) novice or not
+func bNoviceYN(x string, iba string) string {
+
+	res := "N"
+	if strings.Contains(x, "IBA") { // "Check for IBA number" for example
+		if iba == "" {
+			res = "Y" // No IBA number means I'm a novice
+		}
+	} else if strings.Contains(x, cfg.Novice) {
+		res = "Y" // "I'm a novice" for example
+	}
+	return res
+}
+
+/**
 func fmtNoviceYN(x string) string {
 	if fmtNovice(x) != "" && x[0] != 'N' && x[0] != 'n' {
 		return "Y"
@@ -2399,6 +2428,7 @@ func fmtNoviceYN(x string) string {
 		return "N"
 	}
 }
+**/
 
 func fmtOdoKM(x string) string {
 
