@@ -50,7 +50,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.25\nCopyright (c) 2024 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.26\nCopyright (c) 2024 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -79,6 +79,7 @@ var dbfieldsx string
 var overviewsheet string = "Overview"
 var noksheet string = "Contacts"
 var paysheet string = "Money"
+var subssheet string = "Sponsorship"
 
 // The Stats sheet (totsheet) needs to be first as otherwise Google Sheets
 // doesn't show the chart. Much diagnostic phaffery has led me to this
@@ -293,7 +294,7 @@ func fixRiderNumbers() {
 	}
 
 	n := len(oldnew)
-	fmt.Printf("%v entrants loaded\n", n)
+	fmt.Printf("%v entries loaded\n", n)
 	rows.Close()
 }
 
@@ -491,6 +492,10 @@ func initSpreadsheet() {
 		}
 		xl.NewSheet(paysheet)
 		formatSheet(paysheet, false)
+		if cfg.Rally == "rblr" {
+			xl.NewSheet(subssheet)
+			formatSheet(subssheet, false)
+		}
 		xl.NewSheet(chksheet)
 		formatSheet(chksheet, true)
 	}
@@ -528,6 +533,9 @@ func initSpreadsheet() {
 		xl.SetCellStyle(noksheet, "A1", "H1", styleH2L)
 
 		xl.SetCellStyle(paysheet, "A1", "K1", styleH2)
+		if cfg.Rally == "rblr" {
+			xl.SetCellStyle(subssheet, "A1", "I1", styleH2)
+		}
 
 		xl.SetCellStyle(chksheet, "A1", "C1", styleH2L)
 		xl.SetCellStyle(chksheet, "D1", "E1", styleH2)
@@ -607,6 +615,9 @@ func main() {
 	}
 	if exportingGmail {
 		csvGmail.Flush()
+	}
+	if tot.NumWithdrawn > 0 {
+		fmt.Printf("%v entries withdrawn\n", tot.NumWithdrawn)
 	}
 	fmt.Printf("%v entrants written\n", tot.NumRiders)
 
@@ -730,7 +741,10 @@ func mainloop() {
 		e.RiderFirst = properName(RiderFirst)
 		e.RiderLast = properName(RiderLast)
 		if isWithdrawn {
-			fmt.Printf("    Rider %v %v [#%v] is withdrawn\n", e.RiderFirst, e.RiderLast, e.Entrantid)
+			tot.NumWithdrawn++
+			if *verbose {
+				fmt.Printf("    Rider %v %v [#%v] is withdrawn\n", e.RiderFirst, e.RiderLast, e.Entrantid)
+			}
 			e.RiderLast += " (PROV)"
 			continue
 		} else if *verbose && Paid != "Completed" {
@@ -785,11 +799,11 @@ func mainloop() {
 		PillionLast = properName(e.PillionLast)
 
 		//fmt.Printf("%v (%v) %v (%v)\n", RiderFirst, T1, RiderLast, T2)
-		if isFOC {
-			fmt.Printf("Rider %v %v [#%v] has Paid=%v and is therefore FOC\n", e.RiderFirst, e.RiderLast, e.Entrantid, Paid)
+		if isFOC && *verbose {
+			fmt.Printf("    Rider %v %v [#%v] has Paid=%v and is therefore FOC\n", e.RiderFirst, e.RiderLast, e.Entrantid, Paid)
 		}
-		if isCancelled {
-			fmt.Printf("Rider %v %v [#%v] has Paid=%v\n", e.RiderFirst, e.RiderLast, e.Entrantid, Paid)
+		if isCancelled && *verbose {
+			fmt.Printf("    Rider %v %v [#%v] has Paid=%v\n", e.RiderFirst, e.RiderLast, e.Entrantid, Paid)
 		}
 
 		if e.RiderFirst+" "+e.RiderLast == e.NokName {
@@ -932,6 +946,9 @@ func mainloop() {
 			xl.SetCellInt(regsheet, "A"+totx.srowx, entrantid)
 			xl.SetCellInt(noksheet, "A"+totx.srowx, entrantid)
 			xl.SetCellInt(paysheet, "A"+totx.srowx, entrantid)
+			if cfg.Rally == "rblr" {
+				xl.SetCellInt(subssheet, "A"+totx.srowx, entrantid)
+			}
 			if includeShopTab {
 				xl.SetCellInt(shopsheet, "A"+totx.srowx, entrantid)
 			}
@@ -949,6 +966,10 @@ func mainloop() {
 			xl.SetCellValue(noksheet, "C"+totx.srowx, RiderLast)
 			xl.SetCellValue(paysheet, "B"+totx.srowx, RiderFirst)
 			xl.SetCellValue(paysheet, "C"+totx.srowx, RiderLast)
+			if cfg.Rally == "rblr" {
+				xl.SetCellValue(subssheet, "B"+totx.srowx, RiderFirst)
+				xl.SetCellValue(subssheet, "C"+totx.srowx, RiderLast)
+			}
 			if includeShopTab {
 				xl.SetCellValue(shopsheet, "B"+totx.srowx, RiderFirst)
 				xl.SetCellValue(shopsheet, "C"+totx.srowx, RiderLast)
@@ -1047,6 +1068,9 @@ func mainloop() {
 				if *safemode {
 					if Sponsorship != 0 {
 						xl.SetCellInt(paysheet, "I"+totx.srowx, Sponsorship)
+						if cfg.Rally == "rblr" {
+							xl.SetCellInt(subssheet, "D"+totx.srowx, Sponsorship)
+						}
 					}
 					xl.SetCellInt(paysheet, "J"+totx.srowx, intCash+intval(PayTot))
 				} else {
@@ -1221,12 +1245,18 @@ func setTabFormats() {
 		setPageTitle(noksheet)
 		setPageTitle(paysheet)
 		setPageTitle(chksheet)
+		if cfg.Rally == "rblr" {
+			setPageTitle(subssheet)
+		}
 		setPageTitle(regsheet)
 	}
 	setPagePane(overviewsheet)
 	if !*summaryOnly {
 		setPagePane(noksheet)
 		setPagePane(paysheet)
+		if cfg.Rally == "rblr" {
+			setPagePane(subssheet)
+		}
 		setPagePane(chksheet)
 		setPagePane(regsheet)
 	}
@@ -1457,6 +1487,10 @@ func writeTotals() {
 		xl.SetCellStyle(paysheet, "A2", "A"+totx.srowx, styleV3)
 		xl.SetCellStyle(paysheet, "D2", "J"+totx.srowx, styleV)
 		xl.SetCellStyle(paysheet, "K2", "K"+totx.srowx, styleV)
+		if cfg.Rally == "rblr" {
+			xl.SetCellStyle(subssheet, "A2", "A"+totx.srowx, styleV3)
+			xl.SetCellStyle(subssheet, "D2", "I"+totx.srowx, styleV)
+		}
 	}
 
 	totx.srow++ // Leave a gap before totals
@@ -1653,6 +1687,10 @@ func writeTotals() {
 		xl.SetCellValue(regsheet, "D1", "✓")
 		xl.SetCellValue(paysheet, "B1", "Rider(first)")
 		xl.SetCellValue(paysheet, "C1", "Rider(last)")
+		if cfg.Rally == "rblr" {
+			xl.SetCellValue(subssheet, "B1", "Rider(first)")
+			xl.SetCellValue(subssheet, "C1", "Rider(last)")
+		}
 		xl.SetCellValue(chksheet, "B1", "Rider(first)")
 		xl.SetCellValue(chksheet, "C1", "Rider(last)")
 		//xl.SetCellValue(chksheet, "D1", "Bike")
@@ -1688,6 +1726,14 @@ func writeTotals() {
 		if cfg.Sponsorship {
 			xl.SetCellValue(paysheet, "H1", cfg.Fundsonday)
 			xl.SetCellValue(paysheet, "I1", "Total Sponsorship")
+			if cfg.Rally == "rblr" {
+				xl.SetCellValue(subssheet, "D1", "Via Wufoo")
+				xl.SetCellValue(subssheet, "E1", "Squires cheque")
+				xl.SetCellValue(subssheet, "F1", "Squires cash")
+				xl.SetCellValue(subssheet, "G1", "Bank transfer")
+				xl.SetCellValue(subssheet, "H1", "JustGiving amount")
+				xl.SetCellValue(subssheet, "I1", "JustGiving link")
+			}
 		}
 		//xl.SetCellValue(paysheet, "K1", "+Cash")
 		xl.SetCellValue(paysheet, "J1", "Total received")
@@ -1698,7 +1744,13 @@ func writeTotals() {
 		xl.SetColWidth(paysheet, "H", "J", 12)
 		xl.SetColWidth(paysheet, "J", "J", 15)
 		xl.SetColWidth(paysheet, "K", "K", 30)
+		if cfg.Rally == "rblr" {
+			xl.SetColWidth(subssheet, "B", "B", 12)
+			xl.SetColWidth(subssheet, "C", "C", 18)
+			xl.SetColWidth(subssheet, "D", "H", 10)
+			xl.SetColWidth(subssheet, "I", "I", 40)
 
+		}
 	}
 
 	xl.SetCellValue(overviewsheet, "B1", "Rider(first)")
@@ -1798,6 +1850,9 @@ func writeTotals() {
 	if !*summaryOnly {
 		xl.SetRowHeight(noksheet, 1, 20)
 		xl.SetRowHeight(paysheet, 1, 70)
+		if cfg.Rally == "rblr" {
+			xl.SetRowHeight(subssheet, 1, 70)
+		}
 	}
 	sort.Slice(tot.Bikes, func(i, j int) bool {
 		if tot.Bikes[i].Num == tot.Bikes[j].Num {
@@ -1903,7 +1958,13 @@ func downloadCSVFile() {
 		sqlx += dbfieldsx
 		sqlx += ") VALUES("
 
-		for i := 0; i < len(record); i++ {
+		fx := strings.Split(dbfieldsx, ",")
+		rl := len(fx)
+		if len(record) < rl {
+			rl = len(record)
+		}
+
+		for i := 0; i < rl; i++ {
 			if i > 0 {
 				sqlx += ","
 			}

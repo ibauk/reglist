@@ -45,19 +45,19 @@ bikewords: ["Adventure", "Africa", "Bandit", "Blackbird", "BMW", "BSA", "CBF", "
 		"Ducati", "Duke", "ER6F", "ER6N", "Explorer", "F800GS", "F800GSA",
 		"FJR", "FJS", "FZ6", "GL1500", "GL1800", "Goldwing", "GS", "GS1150", "GS1200", "GS1200A", "GS1250", "GSA", "GSF", "GT", "GTR", 
     "Harley-Davidson", "Honda", "Indian", "Kawasaki",
-		"KLE", "KTM", "LC", "Monkey", "Moto Guzzi", "MT09", "MV", "N", "Norton", "NT", "NT700", "R", "R1", "R1150", "R1200", 
+		"KLE", "KTM", "LC", "Monkey", "Moto Guzzi", "Moto Morini", "MT09", "MV", "N", "Norton", "NT", "NT700", "Pan", "R", "R1", "R1150", "R1200", 
     "R1200GSA", "R1250", "R1250GSA",
-    "Royal Enfield", "RS", "RT", "S1000XR", "Scout", "SE", "Speed", "Sprint", "ST", "ST1100", "Street", "SX", 
+    "Royal Enfield", "RS", "RT", "S1000XR", "Scout", "SE", "Speed", "Sprint", "ST", "ST1100", "ST1300", "Street", "SX", 
     "Super",
     "Suzuki", "Tiger", "Tracer", "Triple", "Triumph", "Trophy", "TVS",
-		"Twin", "Varadero", "Versys", "VFR", "V-Strom", "VTR", "VTX", "XC", "XJ600N", "XRT",
+		"Twin", "Varadero", "Versys", "VFR", "VFR1200", "V-Strom", "VTR", "VTX", "XC", "XJ600N", "XRT",
     "Yamagata", "Yamaha", "YZF-R125", "Z125"]
 
 # Use this as bike description if none forthcoming or TBC,etc
 defaultbike: motorcycle
 
 # Replace bike descriptions matching this RE with defaultbike above
-defaultre: (?i)tbc|tba|to be advised|to be confirmed|unknown|tbd|not
+defaultre: (?i)tbc|tba|to be advised|to be confirmed|unknown|tbd|not decided
 
 # URL of live Rides database lookup script
 livedburl: https://rdb.ironbutt.co.uk/lookup.php

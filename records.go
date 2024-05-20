@@ -48,6 +48,7 @@ type Totals struct {
 	Bikes              []Bikemake
 	EntriesByPeriod    []Entrystats
 	CancelledRows      []int
+	NumWithdrawn       int
 }
 
 func NewTotals(numRoutes, numSizes, numBikes int) *Totals {
