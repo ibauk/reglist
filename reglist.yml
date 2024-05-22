@@ -9,7 +9,7 @@ propercasenames: true
 
 # A list of names requiring capitalisation other than Ullll
 specialnames:
-  - McCrea    # as per the man himself.
+  - McCrea # as per the man himself.
   - McCreanor
   - O'Sullivan
   - O'Brien
@@ -31,6 +31,7 @@ specialnames:
   - McDonnell
   - MacMahon
   - MacKenna
+  - O'Keefe
   - O'Keeffe
   - MacNamara
   - MacDonald
@@ -40,18 +41,106 @@ specialnames:
   - McNeil
 
 # A list of tokens used in bike descriptions used for proper capitalisation
-bikewords: ["Adventure", "Africa", "Bandit", "Blackbird", "BMW", "BSA", "CBF", "cc", "CRF1000", "CRF1000L", 
-    "DCT", "Deauville", "DL","DL1000", "DVT",
-		"Ducati", "Duke", "ER6F", "ER6N", "Explorer", "F800GS", "F800GSA",
-		"FJR", "FJS", "FZ6", "GL1500", "GL1800", "Goldwing", "GS", "GS1150", "GS1200", "GS1200A", "GS1250", "GSA", "GSF", "GT", "GTR", 
-    "Harley-Davidson", "Honda", "Indian", "Kawasaki",
-		"KLE", "KTM", "LC", "Monkey", "Moto Guzzi", "Moto Morini", "MT09", "MV", "N", "Norton", "NT", "NT700", "Pan", "R", "R1", "R1150", "R1200", 
-    "R1200GSA", "R1250", "R1250GSA",
-    "Royal Enfield", "RS", "RT", "S1000XR", "Scout", "SE", "Speed", "Sprint", "ST", "ST1100", "ST1300", "Street", "SX", 
+bikewords:
+  [
+    "Adventure",
+    "Africa",
+    "Bandit",
+    "Blackbird",
+    "BMW",
+    "BSA",
+    "CBF",
+    "cc",
+    "CRF1000",
+    "CRF1000L",
+    "DCT",
+    "Deauville",
+    "DL",
+    "DL1000",
+    "DVT",
+    "Ducati",
+    "Duke",
+    "ER6F",
+    "ER6N",
+    "Explorer",
+    "F800GS",
+    "F800GSA",
+    "FJR",
+    "FJS",
+    "FZ6",
+    "GL1500",
+    "GL1800",
+    "Goldwing",
+    "GS",
+    "GS1150",
+    "GS1200",
+    "GS1200A",
+    "GS1250",
+    "GSA",
+    "GSF",
+    "GT",
+    "GTR",
+    "Harley-Davidson",
+    "Honda",
+    "Indian",
+    "Kawasaki",
+    "KLE",
+    "KTM",
+    "LC",
+    "Monkey",
+    "Moto Guzzi",
+    "Moto Morini",
+    "MT09",
+    "MV",
+    "N",
+    "Norton",
+    "NT",
+    "NT700",
+    "Pan",
+    "R",
+    "R1",
+    "R1150",
+    "R1200",
+    "R1200GSA",
+    "R1250",
+    "R1250GSA",
+    "Royal Enfield",
+    "RS",
+    "RT",
+    "S1000XR",
+    "Scout",
+    "SE",
+    "Speed",
+    "Sprint",
+    "ST",
+    "ST1100",
+    "ST1300",
+    "Street",
+    "SX",
     "Super",
-    "Suzuki", "Tiger", "Tracer", "Triple", "Triumph", "Trophy", "TVS",
-		"Twin", "Varadero", "Versys", "VFR", "VFR1200", "V-Strom", "VTR", "VTX", "XC", "XJ600N", "XRT",
-    "Yamagata", "Yamaha", "YZF-R125", "Z125"]
+    "Suzuki",
+    "Tiger",
+    "Tracer",
+    "Triple",
+    "Triumph",
+    "Trophy",
+    "TVS",
+    "Twin",
+    "Varadero",
+    "Versys",
+    "VFR",
+    "VFR1200",
+    "V-Strom",
+    "VTR",
+    "VTX",
+    "XC",
+    "XJ600N",
+    "XRT",
+    "Yamagata",
+    "Yamaha",
+    "YZF-R125",
+    "Z125",
+  ]
 
 # Use this as bike description if none forthcoming or TBC,etc
 defaultbike: motorcycle
@@ -64,4 +153,3 @@ livedburl: https://rdb.ironbutt.co.uk/lookup.php
 
 # Maximum number of chars for phone numbers
 maxphonechars: 24
-

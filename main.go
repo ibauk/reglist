@@ -28,8 +28,6 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/xuri/excelize/v2"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 var rally *string = flag.String("cfg", "", "Which rally is this (yml file)")
@@ -50,7 +48,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.26\nCopyright (c) 2024 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.27\nCopyright (c) 2024 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -143,6 +141,153 @@ var totx struct {
 
 var lookupOnline bool
 
+func main() {
+
+	if !*noCSV {
+		if *csvName != "" {
+			loadCSVFile()
+			fixRiderNumbers()
+		} else if cfg.CsvUrl != "" {
+			downloadCSVFile()
+			fixRiderNumbers()
+		} else {
+			fmt.Println("No CSV input available")
+			return
+		}
+	}
+
+	if *verbose {
+		fmt.Println("dbg: Initialising spreadsheet")
+	}
+	initSpreadsheet()
+	if *verbose {
+		fmt.Println("dbg: Spreadsheet initialised")
+	}
+
+	if exportingCSV {
+		initExportCSV()
+		defer csvF.Close()
+	}
+	if exportingGmail {
+		initExportGmail()
+		defer csvFGmail.Close()
+	}
+
+	mainloop()
+
+	if exportingCSV {
+		csvW.Flush()
+	}
+	if exportingGmail {
+		csvGmail.Flush()
+	}
+	if tot.NumWithdrawn > 0 {
+		fmt.Printf("%v entries withdrawn\n", tot.NumWithdrawn)
+	}
+	fmt.Printf("%v entrants written\n", tot.NumRiders)
+
+	writeTotals()
+
+	setTabFormats()
+
+	markSpreadsheet()
+
+	// Save spreadsheet by the given path.
+	if err := xl.SaveAs(*xlsName); err != nil {
+		fmt.Println(err)
+	}
+
+	reportDuplicates()
+}
+
+// Alphabetic from here on down ==========================================================
+
+func downloadCSVFile() {
+
+	if *verbose {
+		fmt.Printf("Downloading from %v\n", cfg.CsvUrl)
+	}
+	resp, err := http.Get(cfg.CsvUrl)
+	if err != nil {
+		fmt.Printf("Error downloading %v\n", err)
+		return
+	}
+
+	defer resp.Body.Close()
+
+	reader := csv.NewReader(resp.Body)
+
+	makeSQLTable(db)
+
+	hdrSkipped := false
+
+	debugCount := 0
+
+	for {
+		record, err := reader.Read()
+
+		// if we hit end of file (EOF) or another unexpected error
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Printf("\nDownloading CSV - Record - %v - Error: %v\n", record, err)
+			if !hdrSkipped {
+				fmt.Printf("Is %v a valid URL?\nHas the Wufoo report been flagged as Public?\n\n", cfg.CsvUrl)
+				os.Exit(-4)
+			}
+			return
+		} else if *verbose {
+			fmt.Printf("CSV == (%v) %v\n", len(record), record)
+		}
+
+		if !hdrSkipped {
+			hdrSkipped = true
+			continue
+		}
+
+		debugCount++
+
+		if *verbose {
+			fmt.Printf("dbg: Loading %v\n", debugCount)
+		}
+
+		sqlx := "INSERT INTO entrants ("
+		sqlx += dbfieldsx
+		sqlx += ") VALUES("
+
+		fx := strings.Split(dbfieldsx, ",")
+		rl := len(fx)
+		if len(record) < rl {
+			rl = len(record)
+		}
+
+		for i := 0; i < rl; i++ {
+			if i > 0 {
+				sqlx += ","
+			}
+			if len(record[i]) == 0 || record[i] == "NULL" {
+				sqlx += "null"
+			} else {
+				//sqlx += "\"" + record[i] + "\"" // Use " rather than ' as the data might contain single quotes anyway
+				sqlx += "'" + strings.ReplaceAll(record[i], "'", "''") + "'"
+			}
+		}
+		sqlx += ");"
+		_, err = db.Exec(sqlx)
+		if err != nil {
+			db.Exec("COMMIT")
+			fmt.Println(sqlx)
+			log.Fatal(err)
+		}
+	}
+
+	db.Exec("COMMIT")
+	if *verbose {
+		fmt.Println("dbg: Load complete")
+	}
+
+}
+
 func fieldlistFromConfig(cols []string) string {
 
 	var res string = ""
@@ -155,85 +300,6 @@ func fieldlistFromConfig(cols []string) string {
 	}
 
 	return res
-}
-
-// properBike attempts to properly capitalise the various parts of a
-// bike description. Mostly but not always that means uppercasing it.
-func properBike(x string) string {
-
-	var specials = words.Bikewords
-	for _, e := range specials {
-		re := regexp.MustCompile(`(?i)(.*)\b(` + e + `)\b(.*)`) // a word on its own
-		if re.MatchString(x) {
-			res := re.FindStringSubmatch(x)
-			x = res[1] + e + res[3]
-		} else {
-			re := regexp.MustCompile(`(?i)(.*)(0` + e + `)\b(.*)`) // or right after an engine size
-			if re.MatchString(x) {
-				res := re.FindStringSubmatch(x)
-				x = res[1] + "0" + e + res[3]
-			}
-		}
-	}
-	return x
-}
-
-// properMake2 fixes two word Makes such as 'Royal Enfield' and 'Moto Guzzi'
-// by replacing the intervening space with an underscore, replaced later in
-// processing
-func properMake2(x string) string {
-
-	var specials = words.Bikewords
-	var xwords = strings.Fields(x)
-
-	if len(xwords) < 2 {
-		return x
-	}
-	var make2 = strings.Join(xwords[0:2], " ")
-	var model2 = strings.Join(xwords[2:], " ")
-
-	for _, e := range specials {
-		if strings.EqualFold(strings.Replace(e, "-", " ", 1), make2) {
-			var res strings.Builder
-			res.WriteString(strings.Replace(e, " ", "_", 1))
-			res.WriteString(" ")
-			res.WriteString(model2)
-			return res.String()
-		}
-	}
-	return x
-}
-
-func stringsTitle(x string) string {
-
-	caser := cases.Title(language.English)
-	return caser.String(x)
-
-}
-func properName(x string) string {
-
-	var specials = words.Specialnames
-	var xx = strings.TrimSpace(x)
-	if strings.ToUpper(xx) == xx || strings.ToLower(xx) == xx {
-		// Now need to special names like McCrea, McCreanor, etc
-		// This might be one word or more than one so
-		w := strings.Split(xx, " ")
-		for i := 0; i < len(w); i++ {
-			var wx = w[i]
-			if words.Propernames {
-				wx = strings.ToLower(w[i])
-				w[i] = stringsTitle(wx)
-			}
-			for _, wy := range specials {
-				if strings.EqualFold(wx, wy) {
-					w[i] = wy
-				}
-			}
-		}
-		return strings.Join(w, " ")
-	}
-	return xx
-
 }
 
 // fixRiderNumbers creates the field FinalRiderNumber in the database. The original EntryID is
@@ -301,154 +367,34 @@ func fixRiderNumbers() {
 // formatSheet sets printed properties include page orientation and margins
 func formatSheet(sheetName string, portrait bool) {
 
-	var om excelize.PageLayoutOrientation
+	var sz int = 9
+	var ft int = 2
+	var om string
 
 	if portrait {
-		om = excelize.OrientationPortrait
+		om = "portrait"
 	} else {
-		om = excelize.OrientationLandscape
+		om = "landscape"
 	}
 
 	xl.SetPageLayout(
-		sheetName,
-		excelize.PageLayoutOrientation(om),
-		excelize.PageLayoutPaperSize(9), /* xlPaperSizeA4 (10 = xlPaperSizeA4Small!) */
-		excelize.FitToHeight(2),
-		excelize.FitToWidth(2),
-	)
-	xl.SetPageMargins(sheetName,
-		excelize.PageMarginBottom(0.2),
-		excelize.PageMarginFooter(0.2),
-		excelize.PageMarginHeader(0.2),
-		excelize.PageMarginLeft(0.2),
-		excelize.PageMarginRight(0.2),
-		excelize.PageMarginTop(0.2),
-	)
+		sheetName, &excelize.PageLayoutOptions{
+			Orientation: &om,
+			Size:        &sz, /* xlPaperSizeA4 (10 = xlPaperSizeA4Small!) */
+			FitToHeight: &ft,
+			FitToWidth:  &ft,
+		})
 
-}
+	var marg float64 = 0.2
+	xl.SetPageMargins(sheetName, &excelize.PageLayoutMarginsOptions{
+		Bottom: &marg,
+		Footer: &marg,
+		Header: &marg,
+		Left:   &marg,
+		Right:  &marg,
+		Top:    &marg,
+	})
 
-func init() {
-
-	flag.Usage = func() {
-		w := flag.CommandLine.Output()
-		fmt.Fprintf(w, "%v\n", apptitle)
-		fmt.Fprintf(w, "%v\n", progdesc)
-		flag.PrintDefaults()
-	}
-	flag.Parse()
-	if *showusage {
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	fmt.Print(apptitle)
-
-	var cfgerr error
-
-	words, cfgerr = NewWords()
-	if cfgerr != nil {
-		log.Fatal(cfgerr)
-	}
-	//fmt.Printf("%v\n\n", words)
-
-	if *rally == "" {
-		log.Fatal("You must specify the configuration file to use: -cfg rblr")
-	}
-	cfg, cfgerr = NewConfig(*rally + ".yml")
-	if cfgerr != nil {
-		log.Fatal(cfgerr)
-	}
-	if *csvAdmin {
-		*csvReport = false
-	}
-	if *csvReport {
-		dbfieldsx = fieldlistFromConfig(cfg.Rfields)
-		fmt.Printf("CSV downloaded from Wufoo report\n")
-	} else {
-		dbfieldsx = fieldlistFromConfig(cfg.Afields)
-		fmt.Printf("CSV downloaded from Wufoo Administrator page\n")
-	}
-
-	if *allTabs {
-		*summaryOnly = false
-	}
-
-	var sm string = "live"
-	if *livemode {
-		*safemode = false
-	}
-	if *safemode {
-		sm = "safe spreadsheet format"
-	}
-
-	if cfg.Rally == "rblr" {
-		fmt.Printf("Running in RBLR mode, %v\n", sm)
-		sqlx = "SELECT " + sqlx_rblr + " FROM entrants ORDER BY " + cfg.EntrantOrder
-	} else {
-		fmt.Printf("Running in rally mode, %v\n", sm)
-		sqlx = "SELECT " + sqlx_rally + " FROM entrants ORDER BY " + cfg.EntrantOrder
-	}
-
-	exportingCSV = *expReport != ""
-	exportingGmail = *expGmail != ""
-
-	// This needs to be at least as big as the number of sizes declared
-	num_tshirt_sizes = len(cfg.Tshirts)
-	if num_tshirt_sizes > max_tshirt_sizes {
-		num_tshirt_sizes = max_tshirt_sizes
-	}
-
-	// 6 is the number of RBLR routes - should be more generalised class taken from config, slapped wrist
-	tot = NewTotals(6, max_tshirt_sizes, 0)
-
-	var err error
-	db, err = sql.Open("sqlite3", *sqlName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	lookupOnline = lookupOnlineAvail()
-
-	*noLookup = *noLookup || (*ridesdb == "" && !lookupOnline)
-
-	if !*noLookup && *ridesdb != "" {
-		if _, err = os.Stat(*ridesdb); os.IsNotExist(err) {
-			*noLookup = true
-		} else {
-			_, err = db.Exec("ATTACH '" + *ridesdb + "' As rd")
-			if err != nil {
-				log.Fatal(err)
-			}
-			lookupOnline = false
-		}
-	}
-
-	if *noLookup {
-		fmt.Printf("Automatic IBA member identification not running\n")
-	} else if *ridesdb == "" {
-		fmt.Print("IBA member details being checked online")
-		if *verbose {
-			fmt.Printf(" %v", words.LiveDBURL)
-		}
-		fmt.Println()
-	} else {
-		fmt.Printf("Unidentified IBA members looked up using %v\n", *ridesdb)
-	}
-
-	includeShopTab = len(cfg.Tshirts) > 0 || cfg.Patchavail
-	if includeShopTab {
-		fmt.Printf("Including shop tab\n")
-		for i := 0; i < len(cfg.Tshirts); i++ { // Let's just have an uncontrolled panic if someone specifies too many sizes
-			tshirt_sizes[i] = " T-shirt " + cfg.Tshirts[i] // The leading space just makes sense
-		}
-	}
-
-	// Fix columns for patches
-	numsizes := len(cfg.Tshirts)
-	n, _ := excelize.ColumnNameToNumber("S")
-	overview_patch_column, _ = excelize.ColumnNumberToName(n + numsizes)
-	n, _ = excelize.ColumnNameToNumber("D")
-	shop_patch_column, _ = excelize.ColumnNumberToName(n + numsizes)
 }
 
 func initExportCSV() {
@@ -547,92 +493,221 @@ func initSpreadsheet() {
 
 }
 
-// setPageTitle sets each sheet, except Stats, to repeat its
-// top line on each printed page
-func setPageTitle(sheet string) {
+func intval(x string) int {
 
-	var dn excelize.DefinedName
+	re := regexp.MustCompile(`(\d+)`)
+	sm := re.FindSubmatch([]byte(x))
+	if len(sm) < 2 {
+		return 0
+	}
+	n, _ := strconv.Atoi(string(sm[1]))
+	if strings.Contains(x, "-") {
+		n = 0 - n
+	}
+	return n
 
-	dn.Name = "_xlnm.Print_Titles"
-	dn.RefersTo = sheet + "!$1:$1"
-	dn.Scope = sheet
-	xl.SetDefinedName(&dn)
 }
 
-func setPagePane(sheet string) {
-	xl.SetPanes(sheet, `{
-		"freeze": true,
-		"split": false,
-		"x_split": 0,
-		"y_split": 1,
-		"top_left_cell": "A2",
-		"active_pane": "bottomLeft",
-		"panes": [
-		{
-			"sqref": "A2:X2",
-			"active_cell": "A2",
-			"pane": "bottomLeft"
-		}]
-	}`)
-}
+func loadCSVFile() {
 
-func main() {
+	if *verbose {
+		fmt.Printf("dbg: loadCSVFile = %v\n", *csvName)
+	}
+	file, err := os.Open(*csvName)
+	// error - if we have one exit as CSV file not right
+	if err != nil {
+		fmt.Printf("ERROR: %s\n", err)
+		os.Exit(-3)
+	}
+	// now file is open - defer the close of CSV file handle until we return
+	defer file.Close()
+	// connect a CSV reader to the file handle - which is the actual opened
+	// CSV file
+	// TODO : is there an error from this to check?
+	reader := csv.NewReader(file)
 
-	if !*noCSV {
-		if *csvName != "" {
-			loadCSVFile()
-			fixRiderNumbers()
-		} else if cfg.CsvUrl != "" {
-			downloadCSVFile()
-			fixRiderNumbers()
-		} else {
-			fmt.Println("No CSV input available")
+	makeSQLTable(db)
+
+	hdrSkipped := false
+
+	debugCount := 0
+	for {
+		record, err := reader.Read()
+
+		// if we hit end of file (EOF) or another unexpected error
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Println("Error:", err)
 			return
+		}
+
+		if !hdrSkipped {
+			hdrSkipped = true
+			continue
+		}
+
+		debugCount++
+
+		if *verbose {
+			fmt.Printf("dbg: Loading %v\n", debugCount)
+		}
+
+		sqlx := "INSERT INTO entrants ("
+		sqlx += dbfieldsx
+		sqlx += ") VALUES("
+
+		for i := 0; i < len(record); i++ {
+			if i > 0 {
+				sqlx += ","
+			}
+			if len(record[i]) == 0 || record[i] == "NULL" {
+				sqlx += "null"
+			} else {
+				sqlx += "\"" + record[i] + "\"" // Use " rather than ' as the data might contain single quotes anyway
+			}
+		}
+		sqlx += ");"
+		_, err = db.Exec(sqlx)
+		if err != nil {
+			db.Exec("COMMIT")
+			fmt.Println(sqlx)
+			log.Fatal(err)
 		}
 	}
 
+	db.Exec("COMMIT")
 	if *verbose {
-		fmt.Println("dbg: Initialising spreadsheet")
+		fmt.Println("dbg: Load complete")
 	}
-	initSpreadsheet()
+
+}
+
+func makeCSVFile(f *os.File, gmail bool) *csv.Writer {
+
+	writer := csv.NewWriter(f)
+	if gmail {
+		writer.Write(EntrantHeadersGmail())
+	} else {
+		writer.Write(EntrantHeaders())
+	}
+	return writer
+}
+
+func makeFile(csvname string) *os.File {
+
+	file, err := os.Create(csvname)
+	if err != nil {
+		panic(err)
+	}
+	return file
+
+}
+
+func makeSQLTable(db *sql.DB) {
+
+	var x string = ""
+	re := regexp.MustCompile(`\bRiderNumber\b`)
+	if !re.Match([]byte(dbfieldsx)) {
+		x = ",RiderNumber"
+	}
+	x += ",FinalRiderNumber"
+
 	if *verbose {
-		fmt.Println("dbg: Spreadsheet initialised")
+		fmt.Println("dbg: Initialising database")
+	}
+	db.Exec("PRAGMA foreign_keys=OFF")
+	db.Exec("BEGIN TRANSACTION")
+	_, err := db.Exec("DROP TABLE IF EXISTS entrants")
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if exportingCSV {
-		initExportCSV()
-		defer csvF.Close()
+	if *verbose {
+		fmt.Printf("Making entrants => %v\n", dbfieldsx)
 	}
-	if exportingGmail {
-		initExportGmail()
-		defer csvFGmail.Close()
+	_, err = db.Exec("CREATE TABLE entrants (" + dbfieldsx + x + " INTEGER)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.Exec("DROP TABLE IF EXISTS rally")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.Exec(`CREATE TABLE "rally" (
+		"name"	TEXT,
+		"year"	TEXT,
+		"extracted"	TEXT,
+		"csv" TEXT
+	)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.Exec("INSERT INTO rally (name,Year,extracted,csv) VALUES(?,?,?,?)",
+		cfg.Rally,
+		cfg.Year,
+		time.Now().Format("Mon Jan 2 15:04:05 MST 2006"),
+		filepath.Base(*csvName))
+	if err != nil {
+		log.Fatal(err)
+	}
+	if *verbose {
+		fmt.Println("dbg: Database initialised")
 	}
 
-	mainloop()
+}
 
-	if exportingCSV {
-		csvW.Flush()
-	}
-	if exportingGmail {
-		csvGmail.Flush()
-	}
-	if tot.NumWithdrawn > 0 {
-		fmt.Printf("%v entries withdrawn\n", tot.NumWithdrawn)
-	}
-	fmt.Printf("%v entrants written\n", tot.NumRiders)
+func markCancelledEntrants() {
+	for _, r := range tot.CancelledRows {
+		rx := strconv.Itoa(r)
+		xl.SetCellStyle(overviewsheet, "A"+rx, "J"+rx, styleCancel)
 
-	writeTotals()
-
-	setTabFormats()
-
-	markSpreadsheet()
-
-	// Save spreadsheet by the given path.
-	if err := xl.SaveAs(*xlsName); err != nil {
-		fmt.Println(err)
+		if !*summaryOnly {
+			xl.SetCellStyle(regsheet, "A"+rx, "I"+rx, styleCancel)
+			if cfg.Rally == "rblr" {
+				xl.SetCellStyle(regsheet, "J"+rx, "K"+rx, styleCancel)
+				xl.SetCellStyle(subssheet, "A"+rx, "I"+rx, styleCancel)
+			}
+			xl.SetCellStyle(noksheet, "A"+rx, "H"+rx, styleCancel)
+			if includeShopTab {
+				xl.SetCellStyle(shopsheet, "A"+rx, "I"+rx, styleCancel)
+			}
+			xl.SetCellStyle(paysheet, "A"+rx, "J"+rx, styleCancel)
+			xl.SetCellStyle(chksheet, "A"+rx, "H"+rx, styleCancel)
+		}
 	}
 
-	reportDuplicates()
+}
+
+func markSpreadsheet() {
+
+	var creator []string = strings.Split(apptitle, "\n")
+
+	var dp excelize.DocProperties
+	dp.Created = time.Now().Format(time.RFC3339)
+	dp.Modified = time.Now().Format(time.RFC3339)
+	dp.Creator = creator[0]
+	dp.LastModifiedBy = creator[0]
+	dp.Subject = cfg.Rally
+	dp.Description = "This reflects the status of " + cfg.Rally + " as at " + time.Now().UTC().Format(time.UnixDate)
+	if *safemode {
+		dp.Description += "\n\nThis spreadsheet holds static values only and will not reflect changed data everywhere."
+	} else {
+		dp.Description += "\n\nThis spreadsheet is active and will reflect changed data everywhere."
+	}
+	dp.Title = "Rally management spreadsheet"
+	err := xl.SetDocProps(&dp)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+	}
+
+}
+
+func renameSheet(oldname *string, newname string) {
+
+	xl.SetSheetName(*oldname, newname)
+	*oldname = newname
+
 }
 
 func reportDuplicates() {
@@ -651,587 +726,124 @@ func reportDuplicates() {
 
 }
 
-func mainloop() {
-	rows1, err1 := db.Query(sqlx)
-	if err1 != nil {
-		log.Fatal(err1)
-	}
-	totx.srow = 2 // First spreadsheet row to populate
-
-	var tshirts [max_tshirt_sizes]int
-
-	for rows1.Next() {
-		var RiderFirst string
-		var RiderLast string
-		var RiderIBA string
-		var RiderRBL, PillionRBL string
-		var PillionFirst, PillionLast, PillionIBA string
-		var Bike, Make, Model string
-		var Miles string
-		var Camp, Route, T1, T2, Patches string
-		var Mobile, NokName, NokNumber, NokRelation string
-		var PayTot string
-		var Sponsor, Paid, Cash string
-		var novicerider, novicepillion string
-		var miles2squires, freecamping string
-		var entrantid int
-		var feesdue int = 0
-		var odocounts string
-		var isFOC bool = false
-		var withdrawn string
-		var isWithdrawn bool = false
-		var isCancelled bool = false
-		var hasPillionVal string
-		var hasPillion bool = false
-		var NokRiderClash bool = false
-		var NokPillionClash bool = false
-		var NokMobileClash bool = false
-
-		// Entrant record for export
-		var e Entrant
-
-		for i := 0; i < num_tshirt_sizes; i++ {
-			tshirts[i] = 0
-		}
-
-		var err2 error
-		if cfg.Rally == "rblr" {
-			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &RiderRBL, &PillionFirst, &PillionLast, &PillionIBA, &PillionRBL,
-				&Bike, &Miles, &Camp, &Route, &T1, &T2, &Patches, &Cash,
-				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Sponsor, &Paid, &novicerider, &novicepillion,
-				&odocounts, &e.BikeReg, &miles2squires, &freecamping,
-				&e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.EnteredDate, &withdrawn, &hasPillionVal)
-		} else {
-			err2 = rows1.Scan(&RiderFirst, &RiderLast, &RiderIBA, &PillionFirst, &PillionLast, &PillionIBA,
-				&Bike, &T1, &T2,
-				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion, &odocounts,
-				&e.BikeReg, &e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.EnteredDate, &withdrawn, &hasPillionVal)
-		}
-		if err2 != nil {
-			log.Fatalf("mainloop/err2 %v\n", err2)
-		}
-
-		isFOC = Paid == "Refunded"
-		isCancelled = Paid == "Cancelled"
-		isWithdrawn = withdrawn == "Withdrawn"
-		hasPillion = strings.ToLower(hasPillionVal) != "no pillion" && hasPillionVal != ""
-
-		//fmt.Printf("[ %v ] = %v \n", hasPillionVal, hasPillion)
-
-		Bike = properMake2(Bike)
-		Bike = properBike(Bike)
-		if words.DefaultRE != "" {
-			re := regexp.MustCompile(words.DefaultRE)
-			if re.MatchString(Bike) {
-				Make = words.DefaultBike
-				Model = ""
-			} else {
-				Make, Model = extractMakeModel(Bike)
-			}
-		} else {
-			Make, Model = extractMakeModel(Bike)
-		}
-		if Make != words.DefaultBike && Model == "" {
-			Model = words.DefaultBike
-		}
-
-		e.Entrantid = strconv.Itoa(entrantid) // All adjustments already applied
-		e.RiderFirst = properName(RiderFirst)
-		e.RiderLast = properName(RiderLast)
-		if isWithdrawn {
-			tot.NumWithdrawn++
-			if *verbose {
-				fmt.Printf("    Rider %v %v [#%v] is withdrawn\n", e.RiderFirst, e.RiderLast, e.Entrantid)
-			}
-			e.RiderLast += " (PROV)"
-			continue
-		} else if *verbose && Paid != "Completed" {
-			fmt.Printf("    Rider %v %v [#%v] has payment status = %v\n", e.RiderFirst, e.RiderLast, e.Entrantid, Paid)
-		}
-		e.RiderIBA = fmtIBA(RiderIBA)
-		e.RiderRBL = fmtRBL(RiderRBL)
-		e.RiderNovice = bNoviceYN(novicerider, e.RiderIBA) //fmtNoviceYN(novicerider)
-		e.PillionFirst = properName(PillionFirst)
-		if hasPillion && PillionLast == "" {
-			e.PillionLast = properName(RiderLast)
-		} else {
-			e.PillionLast = properName(PillionLast)
-		}
-		e.PillionIBA = fmtIBA(PillionIBA)
-		e.PillionRBL = fmtRBL(PillionRBL)
-		e.PillionNovice = bNoviceYN(novicepillion, e.PillionIBA) // fmtNoviceYN(novicepillion)
-		e.BikeMake = Make
-		e.BikeModel = Model
-		e.OdoKms = fmtOdoKM(odocounts)
-
-		e.BikeReg = strings.ToUpper(e.BikeReg)
-		// e.Email = ""
-		// e.Phone = ""
-		// e.Address1 = ""
-		// e.Address2 = ""
-		// e.Town = ""
-		// e.County = ""
-		e.Postcode = strings.ToUpper(e.Postcode)
-		// e.Country = ""
-
-		e.NokName = properName(NokName)
-		e.NokPhone = NokNumber
-		e.NokRelation = properName(NokRelation)
-
-		// e.BonusClaimMethod = ""
-		e.RouteClass = Route
-		e.Tshirt1 = T1
-		e.Tshirt2 = T2
-		e.Patches = Patches
-		e.Camping = fmtCampingYN(freecamping)
-		e.Miles2Squires = strconv.Itoa(intval(miles2squires))
-		e.Bike = Bike
-
-		if !*noLookup {
-			LookupIBANumbers(&e)
-		}
-
-		RiderFirst = properName(e.RiderFirst)
-		RiderLast = properName(e.RiderLast)
-		PillionFirst = properName(e.PillionFirst)
-		PillionLast = properName(e.PillionLast)
-
-		//fmt.Printf("%v (%v) %v (%v)\n", RiderFirst, T1, RiderLast, T2)
-		if isFOC && *verbose {
-			fmt.Printf("    Rider %v %v [#%v] has Paid=%v and is therefore FOC\n", e.RiderFirst, e.RiderLast, e.Entrantid, Paid)
-		}
-		if isCancelled && *verbose {
-			fmt.Printf("    Rider %v %v [#%v] has Paid=%v\n", e.RiderFirst, e.RiderLast, e.Entrantid, Paid)
-		}
-
-		if e.RiderFirst+" "+e.RiderLast == e.NokName {
-			fmt.Printf("*** Rider %v [#%v] is the emergency contact (%v)\n", e.NokName, e.Entrantid, e.NokRelation)
-			NokRiderClash = true
-		} else if e.PillionFirst+" "+e.PillionLast == e.NokName {
-			fmt.Printf("*** Pillion %v %v [#%v] is the emergency contact (%v)\n", e.PillionFirst, e.PillionLast, e.Entrantid, e.NokRelation)
-			NokPillionClash = true
-		}
-
-		if strings.ReplaceAll(e.Phone, " ", "") == strings.ReplaceAll(e.NokPhone, " ", "") {
-			fmt.Printf("*** Rider %v %v [#%v] has the same mobile as emergency contact %v\n", e.RiderFirst, e.RiderLast, e.Entrantid, e.Phone)
-			NokMobileClash = true
-		}
-
-		npatches := intval(Patches)
-		totx.srowx = strconv.Itoa(totx.srow)
-
-		ebym := Entrystats{ReportingPeriod(e.EnteredDate), 1, 0, 0, 0, 0}
-
-		if !isCancelled || !cancelsLoseOut {
-			for i := 0; i < num_tshirt_sizes; i++ {
-				if cfg.Tshirts[i] == T1 {
-					tshirts[i]++
-					totTShirts[i]++
-					tot.NumTshirtsBySize[i]++
-					tot.NumTshirts++
-				}
-				if cfg.Tshirts[i] == T2 {
-					tshirts[i]++
-					totTShirts[i]++
-					tot.NumTshirtsBySize[i]++
-					tot.NumTshirts++
-				}
-			}
-		}
-		if !isCancelled {
-			// Count the bikes by Make
-			var ok bool = true
-			for i := 0; i < len(tot.Bikes); i++ {
-				if tot.Bikes[i].Make == Make {
-					tot.Bikes[i].Num++
-					ok = false
-				}
-			}
-			if ok { // Add a new make tothe list
-				bmt := Bikemake{Make, 1}
-				tot.Bikes = append(tot.Bikes, bmt)
-			}
-
-			tot.NumRiders++
-
-			if strings.Contains(novicerider, cfg.Novice) {
-				tot.NumNovices++
-				ebym.NumNovice++
-			}
-			if strings.Contains(novicepillion, cfg.Novice) {
-				tot.NumNovices++
-			}
-			if e.RiderIBA != "" {
-				tot.NumIBAMembers++
-				ebym.NumIBA++
-			}
-			if e.PillionIBA != "" {
-				tot.NumIBAMembers++
-			}
-
-			if e.RiderRBL == "R" {
-				tot.NumRBLRiders++
-				ebym.NumRBLRiders++
-			}
-			if e.RiderRBL == "L" {
-				tot.NumRBLBranch++
-				ebym.NumRBLBranch++
-			}
-			if e.PillionRBL == "R" {
-				tot.NumRBLRiders++
-				ebym.NumRBLRiders++
-			}
-			if e.PillionRBL == "L" {
-				tot.NumRBLBranch++
-				ebym.NumRBLBranch++
-			}
-
-			ok = false
-			for i := 0; i < len(tot.EntriesByPeriod); i++ {
-				if tot.EntriesByPeriod[i].Month == ebym.Month {
-					ok = true
-					tot.EntriesByPeriod[i].Total += ebym.Total
-					tot.EntriesByPeriod[i].NumIBA += ebym.NumIBA
-					tot.EntriesByPeriod[i].NumNovice += ebym.NumNovice
-					tot.EntriesByPeriod[i].NumRBLBranch += ebym.NumRBLBranch
-					tot.EntriesByPeriod[i].NumRBLRiders += ebym.NumRBLRiders
-				}
-			}
-			if !ok {
-				tot.EntriesByPeriod = append(tot.EntriesByPeriod, ebym)
-			}
-
-		} // !isCancelled
-
-		if !isCancelled || !cancelsLoseOut {
-
-			if cfg.Rally == "rblr" {
-				if intval(miles2squires) < tot.LoMiles2Squires {
-					tot.LoMiles2Squires = intval(miles2squires)
-				}
-				if intval(miles2squires) > tot.HiMiles2Squires {
-					tot.HiMiles2Squires = intval(miles2squires)
-				}
-				if fmtCampingYN(freecamping) == "Y" {
-					tot.NumCamping++
-				}
-			}
-
-			tot.NumPatches += npatches
-
-		}
-		if isCancelled {
-			tot.CancelledRows = append(tot.CancelledRows, totx.srow)
-		}
-
-		if !*summaryOnly {
-			if isCancelled {
-				xl.SetRowVisible(chksheet, totx.srow, false)
-				xl.SetRowVisible(regsheet, totx.srow, false)
-				xl.SetRowVisible(noksheet, totx.srow, false)
-			} else {
-				xl.SetRowHeight(chksheet, totx.srow, 25)
-			}
-		}
-
-		// Entrant IDs
-		if cfg.Rally == "rblr" {
-			xl.SetCellValue(overviewsheet, "A"+totx.srowx, e.RiderRBL)
-		} else {
-			xl.SetCellInt(overviewsheet, "A"+totx.srowx, entrantid)
-		}
-		if !*summaryOnly {
-			xl.SetCellInt(regsheet, "A"+totx.srowx, entrantid)
-			xl.SetCellInt(noksheet, "A"+totx.srowx, entrantid)
-			xl.SetCellInt(paysheet, "A"+totx.srowx, entrantid)
-			if cfg.Rally == "rblr" {
-				xl.SetCellInt(subssheet, "A"+totx.srowx, entrantid)
-			}
-			if includeShopTab {
-				xl.SetCellInt(shopsheet, "A"+totx.srowx, entrantid)
-			}
-			xl.SetCellInt(chksheet, "A"+totx.srowx, entrantid)
-
-		}
-		// Rider names
-		xl.SetCellValue(overviewsheet, "B"+totx.srowx, RiderFirst)
-		xl.SetCellValue(overviewsheet, "C"+totx.srowx, RiderLast)
-
-		if !*summaryOnly {
-			xl.SetCellValue(regsheet, "B"+totx.srowx, RiderFirst)
-			xl.SetCellValue(regsheet, "C"+totx.srowx, RiderLast)
-			xl.SetCellValue(noksheet, "B"+totx.srowx, RiderFirst)
-			xl.SetCellValue(noksheet, "C"+totx.srowx, RiderLast)
-			xl.SetCellValue(paysheet, "B"+totx.srowx, RiderFirst)
-			xl.SetCellValue(paysheet, "C"+totx.srowx, RiderLast)
-			if cfg.Rally == "rblr" {
-				xl.SetCellValue(subssheet, "B"+totx.srowx, RiderFirst)
-				xl.SetCellValue(subssheet, "C"+totx.srowx, RiderLast)
-			}
-			if includeShopTab {
-				xl.SetCellValue(shopsheet, "B"+totx.srowx, RiderFirst)
-				xl.SetCellValue(shopsheet, "C"+totx.srowx, RiderLast)
-			}
-			xl.SetCellValue(chksheet, "B"+totx.srowx, RiderFirst)
-			xl.SetCellValue(chksheet, "C"+totx.srowx, RiderLast)
-			//if !isCancelled {
-			//	xl.SetCellValue(chksheet, "D"+totx.srowx, Bike)
-			//}
-			if len(odocounts) > 0 && odocounts[0] == 'K' {
-				xl.SetCellValue(chksheet, "D"+totx.srowx, "kms")
-			}
-
-		}
-
-		cancelledFees := 0
-
-		if !isCancelled {
-			if !*summaryOnly {
-				// Fees on Money tab
-				xl.SetCellInt(paysheet, "D"+totx.srowx, cfg.Riderfee) // Basic entry fee
-			}
-			feesdue += cfg.Riderfee
-		} else {
-			cancelledFees += cfg.Riderfee
-		}
-
-		if PillionFirst != "" && PillionLast != "" {
-			if !isCancelled {
-				if !*summaryOnly {
-					xl.SetCellInt(paysheet, "E"+totx.srowx, cfg.Pillionfee)
-				}
-				tot.NumPillions++
-				feesdue += cfg.Pillionfee
-			} else {
-				cancelledFees += cfg.Pillionfee
-			}
-		}
-		var nt int = 0
-		for i := 0; i < len(tshirts); i++ {
-			nt += tshirts[i]
-		}
-		if nt > 0 {
-			if !isCancelled || !cancelsLoseOut {
-				if !*summaryOnly {
-					xl.SetCellInt(paysheet, "F"+totx.srowx, cfg.Tshirtcost*nt)
-				}
-				feesdue += nt * cfg.Tshirtcost
-			} else {
-				cancelledFees += nt * cfg.Tshirtcost
-			}
-		}
-
-		if cfg.Patchavail && npatches > 0 {
-			if !isCancelled || !cancelsLoseOut {
-				xl.SetCellInt(overviewsheet, "X"+totx.srowx, npatches) // Overview tab
-
-				if !*summaryOnly {
-					xl.SetCellInt(paysheet, "G"+totx.srowx, npatches*cfg.Patchcost)
-					xl.SetCellInt(shopsheet, shop_patch_column+totx.srowx, npatches) // Shop tab
-				}
-				feesdue += npatches * cfg.Patchcost
-
-			} else {
-				cancelledFees += npatches * cfg.Patchcost
-			}
-		}
-
-		intCash := intval(Cash)
-
-		tot.TotMoneyCashPaypal += intCash
-
-		if isFOC {
-			PayTot = strconv.Itoa(feesdue - intCash)
-		}
-
-		Sponsorship := cancelledFees
-
-		tot.TotMoneyMainPaypal += intval(PayTot)
-
-		due := (intval(PayTot) + intCash) - feesdue
-
-		if cfg.Sponsorship {
-			// This extracts a number if present from either "Include ..." or "I'll bring ..."
-			Sponsorship += intval(Sponsor) // "50"
-
-			due -= Sponsorship
-			if due > 0 {
-				Sponsorship += due
-				due = 0
-			}
-
-			tot.TotMoneySponsor += Sponsorship
-
-			if !*summaryOnly {
-				if *safemode {
-					if Sponsorship != 0 {
-						xl.SetCellInt(paysheet, "I"+totx.srowx, Sponsorship)
-						if cfg.Rally == "rblr" {
-							xl.SetCellInt(subssheet, "D"+totx.srowx, Sponsorship)
-						}
-					}
-					xl.SetCellInt(paysheet, "J"+totx.srowx, intCash+intval(PayTot))
-				} else {
-					sf := "H" + totx.srowx + "+" + strconv.Itoa(Sponsorship)
-					xl.SetCellFormula(paysheet, "I"+totx.srowx, "if("+sf+"=0,\"0\","+sf+")")
-					xl.SetCellFormula(paysheet, "J"+totx.srowx, "H"+totx.srowx+"+"+strconv.Itoa(intCash)+"+"+strconv.Itoa(intval(PayTot)))
-				}
-
-			} else {
-				xl.SetCellInt(paysheet, "J"+totx.srowx, intval(PayTot))
-			}
-
-		}
-		if !*summaryOnly {
-			if Paid == "Unpaid" && false {
-				xl.SetCellValue(paysheet, "K"+totx.srowx, " UNPAID")
-				xl.SetCellStyle(paysheet, "K"+totx.srowx, "K"+totx.srowx, styleW)
-			} else if !*safemode {
-				ff := "J" + totx.srowx + "-(sum(D" + totx.srowx + ":G" + totx.srowx + ")+I" + totx.srowx + ")"
-				xl.SetCellFormula(paysheet, "K"+totx.srowx, "if("+ff+"=0,\"\","+ff+")")
-			} else {
-				//due := (intval(PayTot) + intCash) - (feesdue + Sponsorship)
-				if due != 0 {
-					xl.SetCellInt(paysheet, "K"+totx.srowx, due)
-				}
-			}
-		}
-
-		if !*summaryOnly {
-			// NOK List
-			xl.SetCellValue(noksheet, "D"+totx.srowx, trimPhone(Mobile))
-			xl.SetCellStyle(noksheet, "B"+totx.srowx, "H"+totx.srowx, styleV2L)
-
-			if !isCancelled {
-				xl.SetCellValue(noksheet, "E"+totx.srowx, properName(NokName))
-				xl.SetCellValue(noksheet, "F"+totx.srowx, properName(NokRelation))
-				xl.SetCellValue(noksheet, "G"+totx.srowx, trimPhone(NokNumber))
-				if NokMobileClash {
-					xl.SetCellStyle(noksheet, "G"+totx.srowx, "G"+totx.srowx, styleCancel)
-				}
-				if NokRiderClash || NokPillionClash {
-					xl.SetCellStyle(noksheet, "E"+totx.srowx, "E"+totx.srowx, styleCancel)
-				}
-			}
-			xl.SetCellValue(noksheet, "H"+totx.srowx, e.Email)
-		}
-
-		if !*summaryOnly {
-			// Registration log
-			xl.SetCellValue(regsheet, "E"+totx.srowx, properName(PillionFirst)+" "+properName(PillionLast))
-			if !isCancelled {
-				xl.SetCellValue(regsheet, "G"+totx.srowx, Make+" "+Model)
-				xl.SetCellValue(regsheet, "H"+totx.srowx, e.BikeReg)
-			}
-		}
-		// Overview
-		xl.SetCellValue(overviewsheet, "D"+totx.srowx, fmtIBA(e.RiderIBA))
-
-		xl.SetCellValue(overviewsheet, "F"+totx.srowx, PillionFirst+" "+PillionLast)
-		if cfg.Rally != "rblr" {
-			//			xl.SetCellValue(overviewsheet, "E"+totx.srowx, fmtNovice(novicerider))
-			xl.SetCellValue(overviewsheet, "E"+totx.srowx, fmtNoviceYb(e.RiderNovice))
-			xl.SetCellValue(overviewsheet, "G"+totx.srowx, fmtIBA(e.PillionIBA))
-			//			xl.SetCellValue(overviewsheet, "H"+totx.srowx, fmtNovice(novicepillion))
-			xl.SetCellValue(overviewsheet, "H"+totx.srowx, fmtNoviceYb(e.PillionNovice))
-		}
-		if !isCancelled {
-			xl.SetCellValue(overviewsheet, "I"+totx.srowx, ShortMaker(Make))
-			xl.SetCellValue(overviewsheet, "J"+totx.srowx, Model)
-		}
-
-		xl.SetCellValue(overviewsheet, "K"+totx.srowx, Miles)
-
-		if Camp == "Yes" && cfg.Rally == "rblr" && (!isCancelled || !cancelsLoseOut) {
-			xl.SetCellValue(overviewsheet, "L"+totx.srowx, "Y")
-		}
-		var cols string = "MNOPQR"
-		var col int = 0
-		if cfg.Rally == "rblr" && !isCancelled {
-			col = strings.Index("ABCDEF", string(Route[0])) // Which route is being ridden. Compare the A -, B -, ...
-			xl.SetCellInt(overviewsheet, string(cols[col])+totx.srowx, 1)
-
-			if !*summaryOnly {
-				//xl.SetCellValue(chksheet, "E"+totx.srowx, rblr_routes[col]) // Carpark
-				xl.SetCellValue(regsheet, "J"+totx.srowx, rblr_routes[col]) // Registration
-			}
-
-			rblr_routes_ridden[col]++
-		}
-
-		if includeShopTab && !*summaryOnly {
-			//cols = "DEFGH"
-			n, _ := excelize.ColumnNameToNumber("D")
-			for col = 0; col < len(tshirts); col++ {
-				if tshirts[col] > 0 {
-					x, _ := excelize.ColumnNumberToName(n + col)
-					xl.SetCellInt(shopsheet, x+totx.srowx, tshirts[col])
-				}
-			}
-		}
-
-		//cols = "STUVW"
-		n, _ := excelize.ColumnNameToNumber("S")
-		for col = 0; col < len(tshirts); col++ {
-			if tshirts[col] > 0 {
-				x, _ := excelize.ColumnNumberToName(n + col)
-				xl.SetCellInt(overviewsheet, x+totx.srowx, tshirts[col])
-			}
-		}
-
-		totx.srow++
-
-		//fmt.Printf("%v\n", Entrant2Strings(e))
-
-		if exportingCSV && !isWithdrawn && !isCancelled {
-			csvW.Write(Entrant2Strings(e))
-		}
-		if exportingGmail && !isWithdrawn && !isCancelled {
-			csvGmail.Write(Entrant2Gmail(e))
-		}
-
-	} // End reading loop
-
-}
-
-func markCancelledEntrants() {
-	for _, r := range tot.CancelledRows {
-		rx := strconv.Itoa(r)
-		xl.SetCellStyle(overviewsheet, "A"+rx, "J"+rx, styleCancel)
-
-		if !*summaryOnly {
-			xl.SetCellStyle(regsheet, "A"+rx, "I"+rx, styleCancel)
-			if cfg.Rally == "rblr" {
-				xl.SetCellStyle(regsheet, "J"+rx, "K"+rx, styleCancel)
-			}
-			xl.SetCellStyle(noksheet, "A"+rx, "H"+rx, styleCancel)
-			if includeShopTab {
-				xl.SetCellStyle(shopsheet, "A"+rx, "I"+rx, styleCancel)
-			}
-			xl.SetCellStyle(paysheet, "A"+rx, "J"+rx, styleCancel)
-			xl.SetCellStyle(chksheet, "A"+rx, "H"+rx, styleCancel)
-		}
-	}
-
-}
-
-func trimPhone(tel string) string {
-
-	var res string
-
-	telx := strings.ReplaceAll(tel, " ", "")
-	if telx[0:2] == "00" {
-		telx = strings.Replace(telx, "00", "+", 1)
-	}
-
-	if len(telx) > words.MaxPhone && words.MaxPhone > 0 {
-		res = telx[:words.MaxPhone]
+func reportEntriesByPeriod() {
+
+	var reportingperiod string
+	if cfg.ReportWeekly {
+		reportingperiod = "week"
 	} else {
-		res = telx
+		reportingperiod = "month"
 	}
-	return res
+
+	sort.Slice(tot.EntriesByPeriod, func(i, j int) bool { return tot.EntriesByPeriod[i].Month > tot.EntriesByPeriod[j].Month })
+
+	xl.SetColWidth(totsheet, "B", "B", 7)
+	xl.SetColWidth(totsheet, "C", "C", 2)
+	xl.SetColVisible(totsheet, "D", false)
+	xl.SetColWidth(totsheet, "F", "F", 5)
+	xl.SetColWidth(totsheet, "G", "G", 2)
+	xl.SetColWidth(totsheet, "I", "K", 5)
+
+	xl.SetCellValue(totsheet, "K2", "Novices")
+	xl.SetCellValue(totsheet, "J2", "IBA members")
+	xl.SetCellValue(totsheet, "L2", "All entries")
+	xl.SetCellValue(totsheet, "I2", "British Legion")
+
+	row := 3
+	for _, p := range tot.EntriesByPeriod {
+		srow := strconv.Itoa(row)
+		md := strings.Split(p.Month, "-")
+		mth := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}[intval(md[0])-1]
+		xl.SetCellValue(totsheet, "H"+srow, mth+" "+md[1])
+		xl.SetCellValue(totsheet, "L"+srow, p.Total)
+		xl.SetCellValue(totsheet, "J"+srow, p.NumIBA)
+		xl.SetCellValue(totsheet, "K"+srow, p.NumNovice)
+		xl.SetCellValue(totsheet, "I"+srow, p.NumRBLRiders+p.NumRBLBranch)
+		row++
+	}
+
+	var bTrue bool = true
+	var bFalse bool = false
+
+	chartseries := make([]excelize.ChartSeries, 0)
+	xrow := strconv.Itoa(row - 1)
+	row = 3
+	var cols string
+	if cfg.Rally == "rblr" {
+		cols = "IJKL"
+	} else {
+		cols = "JKL"
+	}
+
+	for i := 0; i < len(cols); i++ {
+		ll := cols[i : i+1]
+		cs := excelize.ChartSeries{
+			Name:       totsheet + `!$` + ll + `$2`,
+			Categories: totsheet + `!$H$3:$H$` + xrow,
+			Values:     totsheet + `!` + ll + `3:` + ll + xrow,
+		}
+		chartseries = append(chartseries, cs)
+		row++
+	}
+
+	fmtx := excelize.Chart{
+		Type: excelize.Bar,
+		Format: excelize.GraphicOptions{
+			ScaleX:          1.0,
+			ScaleY:          1.2,
+			OffsetX:         15,
+			OffsetY:         10,
+			PrintObject:     &bTrue,
+			LockAspectRatio: true,
+			Locked:          &bFalse,
+		},
+		Legend: excelize.ChartLegend{
+			Position:      "right",
+			ShowLegendKey: false,
+		},
+		Title: []excelize.RichTextRun{{Text: "New signups by " + reportingperiod}},
+		PlotArea: excelize.ChartPlotArea{
+			ShowBubbleSize:  true,
+			ShowCatName:     false,
+			ShowLeaderLines: false,
+			ShowPercent:     true,
+			ShowSerName:     true,
+			ShowVal:         true,
+		},
+		ShowBlanksAs: "zero",
+		Series:       chartseries,
+	}
+
+	err := xl.AddChart(totsheet, "N2", &fmtx)
+	if err != nil {
+		fmt.Printf("OMG: %v\n%v\n", err, fmtx)
+	}
+
+	xl.SetColVisible(totsheet, "H:M", false)
+}
+
+func setPagePane(sheet string) {
+	xl.SetPanes(sheet, &excelize.Panes{
+		Freeze:      true,
+		Split:       false,
+		XSplit:      0,
+		YSplit:      1,
+		TopLeftCell: "A2",
+		ActivePane:  "bottomLeft",
+		Selection:   []excelize.Selection{{SQRef: "A2:X2", ActiveCell: "A2", Pane: "bottomLeft"}},
+	})
+}
+
+// setPageTitle sets each sheet, except Stats, to repeat its
+// top line on each printed page
+func setPageTitle(sheet string) {
+
+	var dn excelize.DefinedName
+
+	dn.Name = "_xlnm.Print_Titles"
+	dn.RefersTo = sheet + "!$1:$1"
+	dn.Scope = sheet
+	xl.SetDefinedName(&dn)
 }
 
 // setTabFormats sets the page headers to repeat when printed and
@@ -1267,108 +879,6 @@ func setTabFormats() {
 	}
 
 	markCancelledEntrants()
-}
-
-func reportEntriesByPeriod() {
-
-	//xl.SetCellValue(totsheet, "A16", " ") // Mark the bottom row just in case
-
-	sort.Slice(tot.EntriesByPeriod, func(i, j int) bool { return tot.EntriesByPeriod[i].Month > tot.EntriesByPeriod[j].Month })
-
-	//fmt.Printf("%v\n", tot.EntriesByPeriod)
-
-	xl.SetColWidth(totsheet, "B", "B", 7)
-	xl.SetColWidth(totsheet, "C", "C", 2)
-	xl.SetColVisible(totsheet, "D", false)
-	xl.SetColWidth(totsheet, "F", "F", 5)
-	xl.SetColWidth(totsheet, "G", "G", 2)
-	xl.SetColWidth(totsheet, "I", "K", 5)
-
-	xl.SetCellValue(totsheet, "K2", "Novices")
-	xl.SetCellValue(totsheet, "J2", "IBA members")
-	xl.SetCellValue(totsheet, "L2", "All entries")
-	xl.SetCellValue(totsheet, "I2", "British Legion")
-	//xl.SetCellValue(totsheet, "M2", "RBL others")
-	row := 3
-	for _, p := range tot.EntriesByPeriod {
-		srow := strconv.Itoa(row)
-		md := strings.Split(p.Month, "-")
-		mth := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}[intval(md[0])-1]
-		xl.SetCellValue(totsheet, "H"+srow, mth+" "+md[1])
-		xl.SetCellValue(totsheet, "L"+srow, p.Total)
-		xl.SetCellValue(totsheet, "J"+srow, p.NumIBA)
-		xl.SetCellValue(totsheet, "K"+srow, p.NumNovice)
-		xl.SetCellValue(totsheet, "I"+srow, p.NumRBLRiders+p.NumRBLBranch)
-		row++
-	}
-
-	fmtx := `{"type":"bar","series": [`
-
-	xrow := strconv.Itoa(row - 1)
-	row = 3
-	var cols string
-	if cfg.Rally == "rblr" {
-		cols = "IJKL"
-	} else {
-		cols = "JKL"
-	}
-
-	for i := 0; i < len(cols); i++ {
-		if i > 0 {
-			fmtx += `,
-			`
-		}
-		ll := cols[i : i+1]
-		fmtx += `{"name":"` + totsheet + `!$` + ll + `$2",	"categories":"` + totsheet + `!$H$3:$H$` + xrow + `","values":"` + totsheet + `!` + ll + `3:` + ll + xrow + `"}`
-		row++
-	}
-
-	var reportingperiod string
-	if cfg.ReportWeekly {
-		reportingperiod = "week"
-	} else {
-		reportingperiod = "month"
-	}
-
-	fmtx += `],
-	"format":
-	{
-		"x_scale": 1.0,
-		"y_scale": 1.2,
-		"x_offset": 15,
-		"y_offset": 10,
-		"print_obj": true,
-		"lock_aspect_ratio": true,
-		"locked": false
-	},
-	"legend":
-	{
-		"position": "right",
-		"show_legend_key": false
-	},
-	"title":
-	{
-		"name": "New signups by ` + reportingperiod + `"
-	},
-	"plotarea":
-	{
-		"show_bubble_size": true,
-		"show_cat_name": false,
-		"show_leader_lines": false,
-		"show_percent": true,
-		"show_series_name": true,
-		"show_val": true
-	},
-	"show_blanks_as": "zero"
-
-	}`
-
-	err := xl.AddChart(totsheet, "N2", fmtx)
-	if err != nil {
-		fmt.Printf("OMG: %v\n%v\n", err, fmtx)
-	}
-
-	xl.SetColVisible(totsheet, "H:M", false)
 }
 
 func writeTotals() {
@@ -1727,6 +1237,7 @@ func writeTotals() {
 			xl.SetCellValue(paysheet, "H1", cfg.Fundsonday)
 			xl.SetCellValue(paysheet, "I1", "Total Sponsorship")
 			if cfg.Rally == "rblr" {
+				xl.SetCellValue(subssheet,"A1","No.")
 				xl.SetCellValue(subssheet, "D1", "Via Wufoo")
 				xl.SetCellValue(subssheet, "E1", "Squires cheque")
 				xl.SetCellValue(subssheet, "F1", "Squires cash")
@@ -1875,645 +1386,4 @@ func writeTotals() {
 
 	totx.srow++
 
-}
-
-func renameSheet(oldname *string, newname string) {
-
-	xl.SetSheetName(*oldname, newname)
-	*oldname = newname
-
-}
-
-func makeFile(csvname string) *os.File {
-
-	file, err := os.Create(csvname)
-	if err != nil {
-		panic(err)
-	}
-	return file
-
-}
-
-func makeCSVFile(f *os.File, gmail bool) *csv.Writer {
-
-	writer := csv.NewWriter(f)
-	if gmail {
-		writer.Write(EntrantHeadersGmail())
-	} else {
-		writer.Write(EntrantHeaders())
-	}
-	return writer
-}
-
-func downloadCSVFile() {
-
-	if *verbose {
-		fmt.Printf("Downloading from %v\n", cfg.CsvUrl)
-	}
-	resp, err := http.Get(cfg.CsvUrl)
-	if err != nil {
-		fmt.Printf("Error downloading %v\n", err)
-		return
-	}
-
-	defer resp.Body.Close()
-
-	reader := csv.NewReader(resp.Body)
-
-	makeSQLTable(db)
-
-	hdrSkipped := false
-
-	debugCount := 0
-
-	for {
-		record, err := reader.Read()
-
-		// if we hit end of file (EOF) or another unexpected error
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			fmt.Printf("\nDownloading CSV - Record - %v - Error: %v\n", record, err)
-			if !hdrSkipped {
-				fmt.Printf("Is %v a valid URL?\nHas the Wufoo report been flagged as Public?\n\n", cfg.CsvUrl)
-				os.Exit(-4)
-			}
-			return
-		} else if *verbose {
-			fmt.Printf("CSV == (%v) %v\n", len(record), record)
-		}
-
-		if !hdrSkipped {
-			hdrSkipped = true
-			continue
-		}
-
-		debugCount++
-
-		if *verbose {
-			fmt.Printf("dbg: Loading %v\n", debugCount)
-		}
-
-		sqlx := "INSERT INTO entrants ("
-		sqlx += dbfieldsx
-		sqlx += ") VALUES("
-
-		fx := strings.Split(dbfieldsx, ",")
-		rl := len(fx)
-		if len(record) < rl {
-			rl = len(record)
-		}
-
-		for i := 0; i < rl; i++ {
-			if i > 0 {
-				sqlx += ","
-			}
-			if len(record[i]) == 0 || record[i] == "NULL" {
-				sqlx += "null"
-			} else {
-				//sqlx += "\"" + record[i] + "\"" // Use " rather than ' as the data might contain single quotes anyway
-				sqlx += "'" + strings.ReplaceAll(record[i], "'", "''") + "'"
-			}
-		}
-		sqlx += ");"
-		_, err = db.Exec(sqlx)
-		if err != nil {
-			db.Exec("COMMIT")
-			fmt.Println(sqlx)
-			log.Fatal(err)
-		}
-	}
-
-	db.Exec("COMMIT")
-	if *verbose {
-		fmt.Println("dbg: Load complete")
-	}
-
-}
-
-func loadCSVFile() {
-
-	if *verbose {
-		fmt.Printf("dbg: loadCSVFile = %v\n", *csvName)
-	}
-	file, err := os.Open(*csvName)
-	// error - if we have one exit as CSV file not right
-	if err != nil {
-		fmt.Printf("ERROR: %s\n", err)
-		os.Exit(-3)
-	}
-	// now file is open - defer the close of CSV file handle until we return
-	defer file.Close()
-	// connect a CSV reader to the file handle - which is the actual opened
-	// CSV file
-	// TODO : is there an error from this to check?
-	reader := csv.NewReader(file)
-
-	makeSQLTable(db)
-
-	hdrSkipped := false
-
-	debugCount := 0
-	for {
-		record, err := reader.Read()
-
-		// if we hit end of file (EOF) or another unexpected error
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			fmt.Println("Error:", err)
-			return
-		}
-
-		if !hdrSkipped {
-			hdrSkipped = true
-			continue
-		}
-
-		debugCount++
-
-		if *verbose {
-			fmt.Printf("dbg: Loading %v\n", debugCount)
-		}
-
-		sqlx := "INSERT INTO entrants ("
-		sqlx += dbfieldsx
-		sqlx += ") VALUES("
-
-		for i := 0; i < len(record); i++ {
-			if i > 0 {
-				sqlx += ","
-			}
-			if len(record[i]) == 0 || record[i] == "NULL" {
-				sqlx += "null"
-			} else {
-				sqlx += "\"" + record[i] + "\"" // Use " rather than ' as the data might contain single quotes anyway
-			}
-		}
-		sqlx += ");"
-		_, err = db.Exec(sqlx)
-		if err != nil {
-			db.Exec("COMMIT")
-			fmt.Println(sqlx)
-			log.Fatal(err)
-		}
-	}
-
-	db.Exec("COMMIT")
-	if *verbose {
-		fmt.Println("dbg: Load complete")
-	}
-
-}
-
-func makeSQLTable(db *sql.DB) {
-
-	var x string = ""
-	re := regexp.MustCompile(`\bRiderNumber\b`)
-	if !re.Match([]byte(dbfieldsx)) {
-		x = ",RiderNumber"
-	}
-	x += ",FinalRiderNumber"
-
-	if *verbose {
-		fmt.Println("dbg: Initialising database")
-	}
-	db.Exec("PRAGMA foreign_keys=OFF")
-	db.Exec("BEGIN TRANSACTION")
-	_, err := db.Exec("DROP TABLE IF EXISTS entrants")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if *verbose {
-		fmt.Printf("Making entrants => %v\n", dbfieldsx)
-	}
-	_, err = db.Exec("CREATE TABLE entrants (" + dbfieldsx + x + " INTEGER)")
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = db.Exec("DROP TABLE IF EXISTS rally")
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = db.Exec(`CREATE TABLE "rally" (
-		"name"	TEXT,
-		"year"	TEXT,
-		"extracted"	TEXT,
-		"csv" TEXT
-	)`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = db.Exec("INSERT INTO rally (name,Year,extracted,csv) VALUES(?,?,?,?)",
-		cfg.Rally,
-		cfg.Year,
-		time.Now().Format("Mon Jan 2 15:04:05 MST 2006"),
-		filepath.Base(*csvName))
-	if err != nil {
-		log.Fatal(err)
-	}
-	if *verbose {
-		fmt.Println("dbg: Database initialised")
-	}
-
-}
-
-func intval(x string) int {
-
-	re := regexp.MustCompile(`(\d+)`)
-	sm := re.FindSubmatch([]byte(x))
-	if len(sm) < 2 {
-		return 0
-	}
-	n, _ := strconv.Atoi(string(sm[1]))
-	if strings.Contains(x, "-") {
-		n = 0 - n
-	}
-	return n
-
-}
-
-func markSpreadsheet() {
-
-	var creator []string = strings.Split(apptitle, "\n")
-
-	var dp excelize.DocProperties
-	dp.Created = time.Now().Format(time.RFC3339)
-	dp.Modified = time.Now().Format(time.RFC3339)
-	dp.Creator = creator[0]
-	dp.LastModifiedBy = creator[0]
-	dp.Subject = cfg.Rally
-	dp.Description = "This reflects the status of " + cfg.Rally + " as at " + time.Now().UTC().Format(time.UnixDate)
-	if *safemode {
-		dp.Description += "\n\nThis spreadsheet holds static values only and will not reflect changed data everywhere."
-	} else {
-		dp.Description += "\n\nThis spreadsheet is active and will reflect changed data everywhere."
-	}
-	dp.Title = "Rally management spreadsheet"
-	err := xl.SetDocProps(&dp)
-	if err != nil {
-		fmt.Printf("%v\n", err)
-	}
-
-}
-
-func initStyles() {
-
-	// styleCancel for highlighting cancelled entrants
-	styleCancel, _ = xl.NewStyle(&excelize.Style{
-		Alignment: &excelize.Alignment{Vertical: "center", Horizontal: "center"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"edeb57"}, Pattern: 1},
-	})
-
-	// Totals
-	styleT, _ = xl.NewStyle(`{	
-			"alignment":
-			{
-				"horizontal": "center",
-				"ident": 1,
-				"justify_last_line": true,
-				"reading_order": 0,
-				"relative_indent": 1,
-				"shrink_to_fit": true,
-				"text_rotation": 0,
-				"vertical": "",
-				"wrap_text": true
-			},
-			"font":
-			{
-				"bold": true,
-				"italic": false,
-				"family": "Arial",
-				"size": 12,
-				"color": "000000"
-			}
-		}`)
-
-	// Header, vertical
-	styleH, _ = xl.NewStyle(`{
-			"alignment":
-			{
-				"horizontal": "center",
-				"ident": 1,
-				"justify_last_line": true,
-				"reading_order": 0,
-				"relative_indent": 1,
-				"shrink_to_fit": true,
-				"text_rotation": 90,
-				"vertical": "",
-				"wrap_text": true
-			},
-			"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
-
-	// Header, horizontal
-	styleH2, _ = xl.NewStyle(`{
-				"alignment":
-				{
-					"horizontal": "center",
-					"ident": 1,
-					"justify_last_line": true,
-					"reading_order": 0,
-					"relative_indent": 1,
-					"shrink_to_fit": true,
-					"text_rotation": 0,
-					"vertical": "center",
-					"wrap_text": true
-				},
-				"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
-
-	styleH2L, _ = xl.NewStyle(`{
-					"alignment":
-					{
-						"horizontal": "left",
-						"ident": 1,
-						"justify_last_line": true,
-						"reading_order": 0,
-						"relative_indent": 1,
-						"shrink_to_fit": true,
-						"text_rotation": 0,
-						"vertical": "center",
-						"wrap_text": true
-					},
-					"fill":{"type":"pattern","color":["#dddddd"],"pattern":1}	}`)
-
-	// Data
-	styleV, _ = xl.NewStyle(`{
-			"alignment":
-			{
-				"horizontal": "center",
-				"ident": 1,
-				"justify_last_line": true,
-				"reading_order": 0,
-				"relative_indent": 1,
-				"shrink_to_fit": true,
-				"text_rotation": 0,
-				"vertical": "",
-				"wrap_text": false
-			},
-			"border": [
-				{
-					"type": "left",
-					"color": "000000",
-					"style": 1
-				},
-				{
-					"type": "bottom",
-					"color": "000000",
-					"style": 1
-				},
-				{
-					"type": "right",
-					"color": "000000",
-					"style": 1
-				}]		
-		}`)
-
-	// Open data
-	styleV2, _ = xl.NewStyle(`{
-			"alignment":
-			{
-				"horizontal": "center",
-				"ident": 1,
-				"justify_last_line": true,
-				"reading_order": 0,
-				"relative_indent": 1,
-				"shrink_to_fit": true,
-				"text_rotation": 0,
-				"vertical": "",
-				"wrap_text": false
-			},
-			"border": [
-				{
-					"type": "bottom",
-					"color": "000000",
-					"style": 1
-				}]		
-		}`)
-
-	styleV2L, _ = xl.NewStyle(`{
-			"alignment":
-			{
-				"horizontal": "left",
-				"ident": 1,
-				"justify_last_line": true,
-				"reading_order": 0,
-				"relative_indent": 1,
-				"shrink_to_fit": true,
-				"text_rotation": 0,
-				"vertical": "",
-				"wrap_text": false
-			},
-			"border": [
-				{
-					"type": "bottom",
-					"color": "000000",
-					"style": 1
-				}]		
-		}`)
-
-	styleV2LBig, _ = xl.NewStyle(`{
-			"alignment":
-			{
-				"horizontal": "left",
-				"ident": 1,
-				"justify_last_line": true,
-				"reading_order": 0,
-				"relative_indent": 1,
-				"shrink_to_fit": true,
-				"text_rotation": 0,
-				"vertical": "",
-				"wrap_text": false
-			},
-			"border": [
-				{
-					"type": "bottom",
-					"color": "000000",
-					"style": 1
-				}],
-			"font":
-				{
-					"size": 16
-				}
-		
-		}`)
-
-	styleV3, _ = xl.NewStyle(`{
-			"alignment":
-			{
-				"horizontal": "center",
-				"ident": 1,
-				"justify_last_line": true,
-				"reading_order": 0,
-				"relative_indent": 1,
-				"shrink_to_fit": true,
-				"text_rotation": 0,
-				"vertical": "",
-				"wrap_text": false
-			}
-		}`)
-
-	// styleW for highlighting, particularly errorneous, cells
-	styleW, _ = xl.NewStyle(`{ 
-			"alignment":
-			{
-				"horizontal": "center",
-				"ident": 1,
-				"justify_last_line": true,
-				"reading_order": 0,
-				"relative_indent": 1,
-				"shrink_to_fit": true,
-				"text_rotation": 0,
-				"vertical": "",
-				"wrap_text": true
-			},
-			"fill":{"type":"pattern","color":["#ffff00"],"pattern":1}	}`)
-
-	styleRJ, _ = xl.NewStyle(`{ 
-				"alignment":
-				{
-					"horizontal": "right",
-					"ident": 1,
-					"justify_last_line": true,
-					"reading_order": 0,
-					"relative_indent": 1,
-					"shrink_to_fit": true,
-					"text_rotation": 0,
-					"vertical": "",
-					"wrap_text": true
-				}
-	}`)
-
-	styleRJSmall, _ = xl.NewStyle(`{ 
-		"alignment":
-		{
-			"horizontal": "right",
-			"ident": 1,
-			"justify_last_line": true,
-			"reading_order": 0,
-			"relative_indent": 1,
-			"shrink_to_fit": true,
-			"text_rotation": 0,
-			"vertical": "",
-			"wrap_text": true
-		},
-		"border": [
-			{
-				"type": "bottom",
-				"color": "000000",
-				"style": 1
-			}],
-
-		"font":
-		{
-			"size": 8
-		}
-}`)
-
-	xl.SetDefaultFont("Arial")
-
-}
-
-func extractMakeModel(bike string) (string, string) {
-
-	if strings.TrimSpace(bike) == "" {
-		return "", ""
-	}
-	re := regexp.MustCompile(`'*\d*\s*([A-Za-z\-\_]*)\s*(.*)`)
-	sm := re.FindSubmatch([]byte(bike))
-	if len(sm) < 3 {
-		return strings.ReplaceAll(string(sm[1]), "_", " "), ""
-	}
-	return strings.ReplaceAll(string(sm[1]), "_", " "), strings.ReplaceAll(string(sm[2]), "_", " ")
-
-}
-
-func fmtIBA(x string) string {
-
-	if x == "-1" {
-		return "n/a"
-	}
-	return strings.ReplaceAll(x, ".0", "")
-
-}
-
-func fmtRBL(x string) string {
-
-	if x == cfg.LegionMember && cfg.LegionMember != "" {
-		return "L"
-	} else if x == cfg.LegionRider && cfg.LegionRider != "" {
-		return "R"
-	}
-	return ""
-}
-
-/*
-*
-func fmtNovice(x string) string {
-
-		if strings.Contains(x, cfg.Novice) {
-			return "Yes"
-		}
-		return ""
-	}
-
-*
-*/
-func fmtNoviceYb(noviceYN string) string {
-
-	if noviceYN == "Y" {
-		return "Yes"
-	}
-	return ""
-}
-
-// boolean (Y/N) novice or not
-func bNoviceYN(x string, iba string) string {
-
-	res := "N"
-	if strings.Contains(x, "IBA") { // "Check for IBA number" for example
-		if iba == "" {
-			res = "Y" // No IBA number means I'm a novice
-		}
-	} else if strings.Contains(x, cfg.Novice) {
-		res = "Y" // "I'm a novice" for example
-	}
-	return res
-}
-
-/**
-func fmtNoviceYN(x string) string {
-	if fmtNovice(x) != "" && x[0] != 'N' && x[0] != 'n' {
-		return "Y"
-	} else {
-		return "N"
-	}
-}
-**/
-
-func fmtOdoKM(x string) string {
-
-	y := strings.ToUpper(x)
-	if len(y) > 0 && y[0] == 'K' {
-		return "K"
-	}
-	return "M"
-
-}
-
-func fmtCampingYN(x string) string {
-
-	if x == cfg.FreeCamping && cfg.FreeCamping != "" {
-		return "Y"
-	}
-	return ""
-}
-
-func ShortMaker(x string) string {
-
-	p := strings.Index(x, "-")
-	if p < 0 {
-		return x
-	}
-	return x[0:p]
 }
