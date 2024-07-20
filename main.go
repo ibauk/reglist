@@ -48,7 +48,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.27\nCopyright (c) 2024 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.28\nCopyright (c) 2024 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -121,6 +121,7 @@ var cfg *Config
 var words *Words
 
 var db *sql.DB
+var rblrdb *sql.DB
 var includeShopTab bool
 var xl *excelize.File
 var exportingCSV bool
@@ -201,6 +202,12 @@ func main() {
 }
 
 // Alphabetic from here on down ==========================================================
+
+func checkerr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
 
 func downloadCSVFile() {
 
@@ -1237,7 +1244,7 @@ func writeTotals() {
 			xl.SetCellValue(paysheet, "H1", cfg.Fundsonday)
 			xl.SetCellValue(paysheet, "I1", "Total Sponsorship")
 			if cfg.Rally == "rblr" {
-				xl.SetCellValue(subssheet,"A1","No.")
+				xl.SetCellValue(subssheet, "A1", "No.")
 				xl.SetCellValue(subssheet, "D1", "Via Wufoo")
 				xl.SetCellValue(subssheet, "E1", "Squires cheque")
 				xl.SetCellValue(subssheet, "F1", "Squires cash")

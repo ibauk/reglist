@@ -107,6 +107,7 @@ type Entrant struct {
 	PCounty          string
 	PPostcode        string
 	PCountry         string
+	Sponsorship      string
 }
 
 func EntrantHeaders() []string {

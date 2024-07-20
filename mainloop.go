@@ -11,6 +11,8 @@ import (
 )
 
 func mainloop() {
+
+	//fmt.Println(sqlx)
 	rows1, err1 := db.Query(sqlx)
 	if err1 != nil {
 		log.Fatal(err1)
@@ -18,6 +20,10 @@ func mainloop() {
 	totx.srow = 2 // First spreadsheet row to populate
 
 	var tshirts [max_tshirt_sizes]int
+
+	if rblrdb != nil {
+		rblrdb.Exec("BEGIN")
+	}
 
 	for rows1.Next() {
 		var RiderFirst string
@@ -140,9 +146,17 @@ func mainloop() {
 		e.Miles2Squires = strconv.Itoa(intval(miles2squires))
 		e.Bike = Bike
 
+		ss := intval(Sponsor)
+		if ss > 0 {
+			e.Sponsorship = strconv.Itoa(ss)
+		}
+
 		if !*noLookup {
 			LookupIBANumbers(&e)
 		}
+
+		rblre := BuildRBLR(e)
+		writeRBLR(&rblre)
 
 		RiderFirst = properName(e.RiderFirst)
 		RiderLast = properName(e.RiderLast)
@@ -396,7 +410,7 @@ func mainloop() {
 			PayTot = strconv.Itoa(feesdue - intCash)
 		}
 
-		Sponsorship := cancelledFees
+		Sponsorship := 0 /* cancelledFees - PW 2024-07-18 */
 
 		tot.TotMoneyMainPaypal += intval(PayTot)
 
@@ -543,5 +557,9 @@ func mainloop() {
 		}
 
 	} // End reading loop
+
+	if rblrdb != nil {
+		rblrdb.Exec("COMMIT")
+	}
 
 }

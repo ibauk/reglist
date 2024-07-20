@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -65,11 +66,16 @@ func init() {
 
 	if cfg.Rally == "rblr" {
 		fmt.Printf("Running in RBLR mode, %v\n", sm)
-		sqlx = "SELECT " + sqlx_rblr + " FROM entrants ORDER BY " + cfg.EntrantOrder
+		sqlx = sqlx_rblr
 	} else {
 		fmt.Printf("Running in rally mode, %v\n", sm)
-		sqlx = "SELECT " + sqlx_rally + " FROM entrants ORDER BY " + cfg.EntrantOrder
+		sqlx = sqlx_rally
 	}
+	sqlx = "SELECT " + sqlx + " FROM entrants"
+	if len(cfg.PaymentStatus) != 0 {
+		sqlx += " WHERE PaymentStatus IN ('" + strings.Join(cfg.PaymentStatus, "','") + "')"
+	}
+	sqlx += " ORDER BY " + cfg.EntrantOrder
 
 	exportingCSV = *expReport != ""
 	exportingGmail = *expGmail != ""
@@ -87,6 +93,14 @@ func init() {
 	db, err = sql.Open("sqlite3", *sqlName)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if cfg.RBLRDB != "" {
+		rblrdb, err = sql.Open("sqlite3", cfg.RBLRDB)
+		checkerr(err)
+		fmt.Println("RBLR database " + cfg.RBLRDB + " is opened")
+		sqlx := "DELETE FROM entrants"
+		rblrdb.Exec(sqlx)
 	}
 
 	lookupOnline = lookupOnlineAvail()

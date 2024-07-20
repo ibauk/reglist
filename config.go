@@ -68,6 +68,8 @@ type Config struct {
 	LegionMember  string   `yaml:"legionmember"`
 	LegionRider   string   `yaml:"legionrider"`
 	FreeCamping   string   `yaml:"freecamping"`
+	RBLRDB        string   `yaml:"rblrdb"`
+	PaymentStatus []string `yaml:"paymentstatus"`
 }
 
 // NewConfig returns a new decoded Config struct

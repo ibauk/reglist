@@ -135,3 +135,7 @@ legionrider: "I am a Legion Rider (RBLR) member"
 
 # value of FreeCamping indicating that the rider wants free camping at Squires
 freecamping: Yes
+
+rblrdb: rblr.db
+
+paymentstatus: ['Completed','Paid','Refunded']
