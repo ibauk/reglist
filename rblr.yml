@@ -1,5 +1,5 @@
 name: rblr
-year: 24
+year: 25
 afields:
   [
     "EntryId",
@@ -53,7 +53,7 @@ afields:
     "Payment_Merchant",
   ]
 
-csvurl: https://britbuttrally.wufoo.com/export/report/RBLR-2024.csv
+csvurl: https://britbuttrally.wufoo.com/export/report/RBLR2025.csv
 
 rfields:
   [

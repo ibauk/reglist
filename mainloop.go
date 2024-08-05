@@ -155,8 +155,10 @@ func mainloop() {
 			LookupIBANumbers(&e)
 		}
 
-		rblre := BuildRBLR(e)
-		writeRBLR(&rblre)
+		if *rally == "rblr" {
+			rblre := BuildRBLR(e)
+			writeRBLR(&rblre)
+		}
 
 		RiderFirst = properName(e.RiderFirst)
 		RiderLast = properName(e.RiderLast)
