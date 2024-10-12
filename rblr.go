@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -100,7 +101,7 @@ func BuildRBLR(e Entrant) EntrantRBLR {
 	E.Bike = e.Bike
 	E.BikeReg = e.BikeReg
 
-	E.Route = Routes[e.RouteClass[0]]
+	E.Route = fmt.Sprintf("%v-%v", string(e.RouteClass[0]), Routes[e.RouteClass[0]])
 	E.FundsRaised.EntryDonation = e.Sponsorship
 
 	E.OdoCounts = e.OdoKms
