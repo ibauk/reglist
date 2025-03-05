@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/xuri/excelize/v2"
@@ -76,6 +77,15 @@ func init() {
 		sqlx += " WHERE PaymentStatus IN ('" + strings.Join(cfg.PaymentStatus, "','") + "')"
 	}
 	sqlx += " ORDER BY " + cfg.EntrantOrder
+
+	if *expReport == "" {
+		*expReport = cfg.Rally + cfg.Year
+	}
+	if filepath.Ext(*expReport) == "" {
+		*expReport = *expReport + ".csv"
+	}
+
+	//fmt.Printf("Creating %v\n", *xlsName)
 
 	exportingCSV = *expReport != ""
 	exportingGmail = *expGmail != ""

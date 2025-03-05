@@ -128,7 +128,7 @@ func rblrPersonFieldNames(P string, Flds []string) string {
 }
 
 func q(x string) string {
-	return `'` + strings.ReplaceAll(x, `'`, `''`) + `'`
+	return `'` + strings.TrimSpace(strings.ReplaceAll(x, `'`, `''`)) + `'`
 }
 func writeRBLR(e *EntrantRBLR) {
 

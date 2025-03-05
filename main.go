@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,7 +40,7 @@ var xlsName *string = flag.String("xls", "", "Path to output XLSX, defaults to c
 var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the SQL database")
 var safemode *bool = flag.Bool("safe", true, "Safe mode avoid formulas, no live updating")
 var livemode *bool = flag.Bool("live", false, "Self-updating, live mode")
-var expReport *string = flag.String("exp", "", "Path to output standard format CSV")
+var expReport *string = flag.String("exp", "", "Path to output standard format CSV, default to cfg name+year")
 var expGmail *string = flag.String("gmail", "", "Path to CSV output for Gmail")
 var ridesdb *string = flag.String("rd", "", "Path of rides database for lookup")
 var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA members")
@@ -48,7 +49,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.28a\nCopyright (c) 2024 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.29\nCopyright (c) 2025 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -198,7 +199,10 @@ func main() {
 		fmt.Println(err)
 	}
 
-	reportDuplicates()
+	if *verbose {
+		reportDuplicates()
+	}
+	reportOutstanding()
 }
 
 // Alphabetic from here on down ==========================================================
@@ -729,6 +733,36 @@ func reportDuplicates() {
 	for dupes.Next() {
 		dupes.Scan(&name, &last, &rex)
 		fmt.Printf("*** Rider %v %v is entered more than once (%v times!)\n", name, last, rex)
+	}
+
+}
+
+// This reports riders who've tried but so far failed to complete entry (not yet paid)
+func reportOutstanding() {
+	var name, last, paymentstatus string
+	var lastname, lastlast string
+	var paidok bool
+
+	entries, err := db.Query("SELECT RiderName,RiderLast,PaymentStatus FROM entrants WHERE Withdrawn IS NULL ORDER BY RiderName,RiderLast;")
+	if err != nil {
+		panic(err)
+	}
+	for entries.Next() {
+		entries.Scan(&name, &last, &paymentstatus)
+
+		if lastname != name || lastlast != last {
+			if !paidok && lastname != "" {
+				fmt.Printf("*** Rider %v %v is still unpaid\n", lastname, lastlast)
+			}
+			paidok = false
+			lastname = name
+			lastlast = last
+		}
+		paidok = paidok || slices.Contains(cfg.PaymentStatus, paymentstatus)
+
+	}
+	if lastname != "" && !paidok {
+		fmt.Printf("*** Rider %v %v is still unpaid\n", lastname, lastlast)
 	}
 
 }

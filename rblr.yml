@@ -124,7 +124,7 @@ sponsorship: true
 fundsonday: Cheque @ Squires
 novice: novice
 add2entrantid: 0
-entrantorder: upper(RiderLast),upper(RiderName)
+entrantorder: upper(trim(RiderLast)),upper(trim(RiderName))
 weekly: false
 
 # value of RiderRBL, PillionRBL indicating ordinary (not Riders branch) Legion member

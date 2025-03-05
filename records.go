@@ -327,7 +327,9 @@ func validateIBAnumber(viba *string, vlabel, vfirst, vlast, vemail string) {
 		riba, remail = lookupIBA(vfirst, vlast)
 	}
 	if riba != "" && riba != "0" { // Found an IBA number
-		fmt.Printf("*** %v %v %v %v %v is IBA %v %v\n", vlabel, vfirst, vlast, *viba, vemail, riba, remail)
+		if *verbose {
+			fmt.Printf("*** %v %v %v %v %v is IBA %v %v\n", vlabel, vfirst, vlast, *viba, vemail, riba, remail)
+		}
 		*viba = riba
 		return
 	}

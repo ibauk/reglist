@@ -78,7 +78,7 @@ func NewConfig(configPath string) (*Config, error) {
 	config := &Config{}
 	config.Rally = "test"
 	config.Novice = "novice"
-	config.EntrantOrder = "upper(RiderLast),upper(RiderName)"
+	config.EntrantOrder = "upper(trim(RiderLast)),upper(trim(RiderName))"
 
 	// Open config file
 	file, err := os.Open(configPath)

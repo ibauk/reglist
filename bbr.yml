@@ -1,5 +1,5 @@
 name: bbr
-year: 24
+year: 25
 afields:
   [
     "EntryId",
@@ -118,4 +118,4 @@ novice: novice
 add2entrantid: 0
 entrantorder: upper(RiderLast),upper(RiderName)
 
-csvurl: https://britbuttrally.wufoo.com/export/report/bbr-2024.csv
+csvurl: https://britbuttrally.wufoo.com/export/report/bbr-2025.csv
