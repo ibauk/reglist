@@ -73,7 +73,7 @@ func init() {
 		sqlx = sqlx_rally
 	}
 	sqlx = "SELECT " + sqlx + " FROM entrants"
-	if len(cfg.PaymentStatus) != 0 {
+	if len(cfg.PaymentStatus) != 0 && *summaryOnly {
 		sqlx += " WHERE PaymentStatus IN ('" + strings.Join(cfg.PaymentStatus, "','") + "')"
 	}
 	sqlx += " ORDER BY " + cfg.EntrantOrder

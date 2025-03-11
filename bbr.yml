@@ -119,3 +119,5 @@ add2entrantid: 0
 entrantorder: upper(RiderLast),upper(RiderName)
 
 csvurl: https://britbuttrally.wufoo.com/export/report/bbr-2025.csv
+
+paymentstatus: ['Completed','Paid','Refunded']

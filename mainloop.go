@@ -451,7 +451,7 @@ func mainloop() {
 
 		}
 		if !*summaryOnly {
-			if Paid == "Unpaid" && false {
+			if Paid == "Unpaid" && true {
 				xl.SetCellValue(paysheet, "K"+totx.srowx, " UNPAID")
 				xl.SetCellStyle(paysheet, "K"+totx.srowx, "K"+totx.srowx, styleW)
 			} else if !*safemode {

@@ -49,7 +49,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.29a\nCopyright (c) 2025 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.30\nCopyright (c) 2025 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -754,7 +754,7 @@ func reportOutstanding() {
 			if !paidok && lastname != "" {
 				fmt.Printf("*** Rider %v %v is still unpaid\n", properName(lastname), properName(lastlast))
 			}
-			paidok = false
+			paidok = len(cfg.PaymentStatus) < 1
 			lastname = name
 			lastlast = last
 		}
