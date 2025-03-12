@@ -49,7 +49,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.30\nCopyright (c) 2025 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.31\nCopyright (c) 2025 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -79,6 +79,7 @@ var overviewsheet string = "Overview"
 var noksheet string = "Contacts"
 var paysheet string = "Money"
 var subssheet string = "Sponsorship"
+var unpaidsheet string = "Unpaids"
 
 // The Stats sheet (totsheet) needs to be first as otherwise Google Sheets
 // doesn't show the chart. Much diagnostic phaffery has led me to this
@@ -116,7 +117,7 @@ ifnull(Date_Created,''),ifnull(Withdrawn,''),ifnull(HasPillion,'')`
 
 var sqlx string
 
-var styleH, styleH2, styleH2L, styleT, styleV, styleV2, styleV2L, styleV2LBig, styleV3, styleW, styleCancel, styleRJ, styleRJSmall int
+var styleH, styleH2, styleH2L, styleT, styleV, styleV2, styleV2L, styleV2LBig, styleV3, styleW, styleCancel, styleRJ, styleRJSmall, styleUnpaids int
 
 var cfg *Config
 var words *Words
@@ -194,6 +195,8 @@ func main() {
 
 	markSpreadsheet()
 
+	reportOutstanding()
+
 	// Save spreadsheet by the given path.
 	if err := xl.SaveAs(*xlsName); err != nil {
 		fmt.Println(err)
@@ -202,7 +205,6 @@ func main() {
 	if *verbose {
 		reportDuplicates()
 	}
-	reportOutstanding()
 }
 
 // Alphabetic from here on down ==========================================================
@@ -504,6 +506,30 @@ func initSpreadsheet() {
 
 }
 
+func initSpreadsheetUnpaids() {
+	xl.NewSheet(unpaidsheet)
+	formatSheet(unpaidsheet, false)
+	xl.SetCellStyle(unpaidsheet, "A1", "F1", styleUnpaids)
+	xl.SetCellStyle(unpaidsheet, "A2", "F2", styleH2)
+	xl.SetRowHeight(unpaidsheet, 1, 30)
+	xl.SetRowHeight(unpaidsheet, 2, 30)
+	xl.SetCellValue(unpaidsheet, "A1", "These have not paid and are not included in the main stats")
+	xl.MergeCell(unpaidsheet, "A1", "F1")
+
+	xl.SetCellValue(unpaidsheet, "A2", "Filthy debtor")
+	xl.SetCellValue(unpaidsheet, "B2", "Phone")
+	xl.SetCellValue(unpaidsheet, "C2", "Email")
+	xl.SetCellValue(unpaidsheet, "D2", "T-Shirts")
+	xl.SetCellValue(unpaidsheet, "E2", "Patches")
+	xl.SetCellValue(unpaidsheet, "F2", "Unpaid")
+	xl.SetColWidth(unpaidsheet, "A", "A", 20)
+	xl.SetColWidth(unpaidsheet, "B", "B", 15)
+	xl.SetColWidth(unpaidsheet, "C", "C", 30)
+	xl.SetColWidth(unpaidsheet, "D", "D", 10)
+	xl.SetColWidth(unpaidsheet, "E", "E", 10)
+	xl.SetColWidth(unpaidsheet, "F", "F", 10)
+
+}
 func intval(x string) int {
 
 	re := regexp.MustCompile(`(\d+)`)
@@ -738,35 +764,83 @@ func reportDuplicates() {
 }
 
 // This reports riders who've tried but so far failed to complete entry (not yet paid)
+type UnpaidEntrant struct {
+	First   string
+	Last    string
+	Status  string
+	Phone   string
+	Email   string
+	Tshirt1 string
+	Tshirt2 string
+	Patch   string
+	Unpaid  string
+}
+
 func reportOutstanding() {
-	var name, last, paymentstatus string
-	var lastname, lastlast string
+	var this, last UnpaidEntrant
 	var paidok bool
 
-	entries, err := db.Query("SELECT upper(trim(RiderName)),upper(trim(RiderLast)),PaymentStatus FROM entrants WHERE Withdrawn IS NULL ORDER BY upper(trim(RiderName)),upper(trim(RiderLast));")
+	sqlx := "SELECT upper(trim(RiderName)),upper(trim(RiderLast)),PaymentStatus,Mobilephone,Email,ifnull(Tshirt1,''),ifnull(Tshirt2,''),ifnull(Patches,''),PaymentTotal FROM entrants WHERE Withdrawn IS NULL ORDER BY upper(trim(RiderName)),upper(trim(RiderLast));"
+
+	entries, err := db.Query(sqlx)
 	if err != nil {
 		panic(err)
 	}
+	rowix := 3
+	sheetok := false
 	for entries.Next() {
-		entries.Scan(&name, &last, &paymentstatus)
+		entries.Scan(&this.First, &this.Last, &this.Status, &this.Phone, &this.Email, &this.Tshirt1, &this.Tshirt2, &this.Patch, &this.Unpaid)
 
-		if lastname != name || lastlast != last {
-			if !paidok && lastname != "" {
-				fmt.Printf("*** Rider %v %v is still unpaid\n", properName(lastname), properName(lastlast))
+		if this.First != last.First || this.Last != last.Last {
+			if !paidok && last.First != "" {
+				fmt.Printf("*** Rider %v %v is still unpaid\n", properName(last.First), properName(last.Last))
+				reportOutstandingDetails(last, rowix, sheetok)
+				rowix++
+				sheetok = true
+
 			}
 			paidok = len(cfg.PaymentStatus) < 1
-			lastname = name
-			lastlast = last
+			last = this
 		}
-		paidok = paidok || slices.Contains(cfg.PaymentStatus, paymentstatus)
+		paidok = paidok || slices.Contains(cfg.PaymentStatus, this.Status)
 
 	}
-	if lastname != "" && !paidok {
-		fmt.Printf("*** Rider %v %v is still unpaid\n", properName(lastname), properName(lastlast))
+	if last.First != "" && !paidok {
+		fmt.Printf("*** Rider %v %v is still unpaid\n", properName(last.First), properName(last.Last))
+		reportOutstandingDetails(last, rowix, sheetok)
 	}
 
 }
 
+func reportOutstandingDetails(e UnpaidEntrant, rowix int, sheetok bool) {
+
+	const nothanks = "no thanks"
+	row := strconv.Itoa(rowix)
+	if !sheetok {
+		initSpreadsheetUnpaids()
+	}
+
+	xl.SetCellValue(unpaidsheet, "A"+row, properName(e.First+" "+e.Last))
+	xl.SetCellValue(unpaidsheet, "B"+row, e.Phone)
+	xl.SetCellValue(unpaidsheet, "C"+row, e.Email)
+	tshirt1 := strings.ReplaceAll(e.Tshirt1, nothanks, "")
+	tshirt2 := strings.ReplaceAll(e.Tshirt2, nothanks, "")
+	tshirts := tshirt1
+	if tshirt2 != "" {
+		if tshirts != "" {
+			tshirts += " + "
+		}
+		tshirts += tshirt2
+	}
+	xl.SetCellValue(unpaidsheet, "D"+row, tshirts)
+	patch := intval(strings.ReplaceAll(e.Patch, nothanks, ""))
+	if patch > 0 {
+		xl.SetCellValue(unpaidsheet, "E"+row, "  "+strconv.Itoa(patch))
+	}
+	xl.SetCellValue(unpaidsheet, "F"+row, e.Unpaid)
+	xl.SetCellStyle(unpaidsheet, "D"+row, "F"+row, styleV3)
+
+}
 func reportEntriesByPeriod() {
 
 	var reportingperiod string

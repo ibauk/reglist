@@ -73,7 +73,7 @@ func init() {
 		sqlx = sqlx_rally
 	}
 	sqlx = "SELECT " + sqlx + " FROM entrants"
-	if len(cfg.PaymentStatus) != 0 && *summaryOnly {
+	if len(cfg.PaymentStatus) != 0 {
 		sqlx += " WHERE PaymentStatus IN ('" + strings.Join(cfg.PaymentStatus, "','") + "')"
 	}
 	sqlx += " ORDER BY " + cfg.EntrantOrder
@@ -108,6 +108,10 @@ func init() {
 	if cfg.RBLRDB != "" {
 		rblrdb, err = sql.Open("sqlite3", cfg.RBLRDB)
 		checkerr(err)
+		_, err := rblrdb.Query("SELECT DBInitialised FROM config")
+		if err != nil {
+			log.Fatal("RBLR database is not setup, please do so before running me")
+		}
 		fmt.Println("RBLR database " + cfg.RBLRDB + " is opened")
 		sqlx := "DELETE FROM entrants"
 		rblrdb.Exec(sqlx)
@@ -199,6 +203,21 @@ func initStyles() {
 			TextRotation:    90,
 			Vertical:        "",
 			WrapText:        true,
+		},
+		Fill: excelize.Fill{Type: "pattern", Color: []string{"#dddddd"}, Pattern: 1},
+	})
+
+	styleUnpaids, _ = xl.NewStyle(&excelize.Style{
+		Alignment: &excelize.Alignment{
+			Horizontal:      "center",
+			Indent:          1,
+			JustifyLastLine: false,
+			ReadingOrder:    0,
+			RelativeIndent:  1,
+			ShrinkToFit:     false,
+			TextRotation:    0,
+			Vertical:        "center",
+			WrapText:        false,
 		},
 		Fill: excelize.Fill{Type: "pattern", Color: []string{"#dddddd"}, Pattern: 1},
 	})
