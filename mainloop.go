@@ -554,6 +554,9 @@ func mainloop() {
 		if exportingCSV && !isWithdrawn && !isCancelled {
 			csvW.Write(Entrant2Strings(e))
 		}
+		if exportingEmail && !isWithdrawn && !isCancelled {
+			csvEmail.Write(Entrant2Email(e))
+		}
 		if exportingGmail && !isWithdrawn && !isCancelled {
 			csvGmail.Write(Entrant2Gmail(e))
 		}

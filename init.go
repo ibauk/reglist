@@ -88,6 +88,7 @@ func init() {
 	//fmt.Printf("Creating %v\n", *xlsName)
 
 	exportingCSV = *expReport != ""
+	exportingEmail = *expEmail != ""
 	exportingGmail = *expGmail != ""
 
 	// This needs to be at least as big as the number of sizes declared

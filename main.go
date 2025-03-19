@@ -41,6 +41,7 @@ var noCSV *bool = flag.Bool("nocsv", false, "Don't load a CSV file, just use the
 var safemode *bool = flag.Bool("safe", true, "Safe mode avoid formulas, no live updating")
 var livemode *bool = flag.Bool("live", false, "Self-updating, live mode")
 var expReport *string = flag.String("exp", "", "Path to output standard format CSV, default to cfg name+year")
+var expEmail *string = flag.String("email", "", "Path CSV output for generic email")
 var expGmail *string = flag.String("gmail", "", "Path to CSV output for Gmail")
 var ridesdb *string = flag.String("rd", "", "Path of rides database for lookup")
 var noLookup *bool = flag.Bool("nolookup", false, "Don't lookup unidentified IBA members")
@@ -49,7 +50,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.31\nCopyright (c) 2025 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.32\nCopyright (c) 2025 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -128,8 +129,11 @@ var includeShopTab bool
 var xl *excelize.File
 var exportingCSV bool
 var exportingGmail bool
+var exportingEmail bool
 var csvF *os.File
 var csvW *csv.Writer
+var csvFEmail *os.File
+var csvEmail *csv.Writer
 var csvFGmail *os.File
 var csvGmail *csv.Writer
 var num_tshirt_sizes int
@@ -171,6 +175,10 @@ func main() {
 		initExportCSV()
 		defer csvF.Close()
 	}
+	if exportingEmail {
+		initExportEmail()
+		defer csvFEmail.Close()
+	}
 	if exportingGmail {
 		initExportGmail()
 		defer csvFGmail.Close()
@@ -180,6 +188,9 @@ func main() {
 
 	if exportingCSV {
 		csvW.Flush()
+	}
+	if exportingEmail {
+		csvEmail.Flush()
 	}
 	if exportingGmail {
 		csvGmail.Flush()
@@ -412,13 +423,18 @@ func formatSheet(sheetName string, portrait bool) {
 
 func initExportCSV() {
 	csvF = makeFile(*expReport)
-	csvW = makeCSVFile(csvF, false)
+	csvW = makeCSVFile(csvF, false, false)
 	fmt.Printf("Exporting CSV to %v\n", *expReport)
+}
+func initExportEmail() {
+	csvFEmail = makeFile(*expEmail)
+	csvEmail = makeCSVFile(csvFEmail, false, true)
+	fmt.Printf("Exporting Email CSV to %v\n", *expEmail)
 }
 
 func initExportGmail() {
 	csvFGmail = makeFile(*expGmail)
-	csvGmail = makeCSVFile(csvFGmail, true)
+	csvGmail = makeCSVFile(csvFGmail, true, false)
 	fmt.Printf("Exporting Gmail CSV to %v\n", *expGmail)
 }
 
@@ -620,10 +636,12 @@ func loadCSVFile() {
 
 }
 
-func makeCSVFile(f *os.File, gmail bool) *csv.Writer {
+func makeCSVFile(f *os.File, gmail bool, email bool) *csv.Writer {
 
 	writer := csv.NewWriter(f)
-	if gmail {
+	if email {
+		writer.Write(EntrantHeadersEmail())
+	} else if gmail {
 		writer.Write(EntrantHeadersGmail())
 	} else {
 		writer.Write(EntrantHeaders())

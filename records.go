@@ -63,6 +63,13 @@ func NewTotals(numRoutes, numSizes, numBikes int) *Totals {
 	return &t
 }
 
+type EntrantEmail struct {
+	RiderFirst string
+	RiderLast  string
+	Email      string
+	Phone      string
+}
+
 type Entrant struct {
 	Entrantid        string
 	RiderFirst       string
@@ -121,6 +128,12 @@ func EntrantHeaders() []string {
 	return res
 }
 
+func EntrantHeadersEmail() []string {
+
+	res := []string{"RiderFirst", "RiderLast", "Email", "Phone"}
+	return res
+}
+
 func EntrantHeadersGmail() []string {
 
 	res := []string{"Name", "Given Name", "Additional Name", "Family Name",
@@ -134,6 +147,15 @@ func EntrantHeadersGmail() []string {
 	return res
 }
 
+func Entrant2Email(e Entrant) []string {
+
+	var res []string
+	res = append(res, e.RiderFirst)
+	res = append(res, e.RiderLast)
+	res = append(res, e.Email)
+	res = append(res, e.Phone)
+	return res
+}
 func Entrant2Gmail(e Entrant) []string {
 
 	var res []string
