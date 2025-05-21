@@ -202,7 +202,7 @@ func lookupIBA(first, last string) (string, string) {
 
 	var num, email string
 
-	sqlx := "SELECT IBA_Number, Email FROM rd.riders WHERE Rider_Name = '" + first + "' || ' ' || '" + last + "' AND IBA_Number <>'' COLLATE NOCASE"
+	sqlx := "SELECT IBA_Number, Email FROM rd.riders WHERE Rider_Last = '" + last + "' AND Rider_First= '" + first + "' AND IBA_Number <>'' COLLATE NOCASE"
 	//fmt.Printf("%v\n", sqlx)
 	rows, err := db.Query(sqlx)
 	if err != nil {

@@ -144,7 +144,7 @@ func mainloop() {
 		e.Patches = Patches
 		e.Camping = fmtCampingYN(freecamping)
 		e.Miles2Squires = strconv.Itoa(intval(miles2squires))
-		e.Bike = Bike
+		e.Bike = fmt.Sprintf("%v %v", e.BikeMake, e.BikeModel)
 
 		ss := intval(Sponsor)
 		if ss > 0 {

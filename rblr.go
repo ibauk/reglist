@@ -98,7 +98,7 @@ func BuildRBLR(e Entrant) EntrantRBLR {
 	E.NokRelation = e.NokRelation
 	E.NokPhone = e.NokPhone
 
-	E.Bike = e.Bike
+	E.Bike = fmt.Sprintf("%v %v", e.BikeMake, e.BikeModel)
 	E.BikeReg = e.BikeReg
 
 	E.Route = fmt.Sprintf("%v-%v", string(e.RouteClass[0]), Routes[e.RouteClass[0]])

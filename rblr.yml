@@ -115,7 +115,7 @@ rfields:
     "Completion_Status",
   ]
 tshirtsizes: ["S", "M", "L", "XL", "XXL"]
-tshirtcost: 10
+tshirtcost: 15
 riderfee: 25
 pillionfee: 10
 patchavail: true
