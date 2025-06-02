@@ -175,6 +175,7 @@ func mainloop() {
 		if e.RiderFirst+" "+e.RiderLast == e.NokName {
 			fmt.Printf("*** Rider %v [#%v] is the emergency contact (%v)\n", e.NokName, e.Entrantid, e.NokRelation)
 			NokRiderClash = true
+			e.NokName = ""
 		} else if e.PillionFirst+" "+e.PillionLast == e.NokName {
 			fmt.Printf("*** Pillion %v %v [#%v] is the emergency contact (%v)\n", e.PillionFirst, e.PillionLast, e.Entrantid, e.NokRelation)
 			NokPillionClash = true
@@ -183,6 +184,7 @@ func mainloop() {
 		if strings.ReplaceAll(e.Phone, " ", "") == strings.ReplaceAll(e.NokPhone, " ", "") {
 			fmt.Printf("*** Rider %v %v [#%v] has the same mobile as emergency contact %v\n", e.RiderFirst, e.RiderLast, e.Entrantid, e.Phone)
 			NokMobileClash = true
+			e.NokPhone = ""
 		}
 
 		npatches := intval(Patches)

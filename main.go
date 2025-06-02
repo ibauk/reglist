@@ -206,7 +206,9 @@ func main() {
 
 	markSpreadsheet()
 
-	reportOutstanding()
+	if cfg.Rally == "rblr" {
+		reportOutstanding()
+	}
 
 	// Save spreadsheet by the given path.
 	if err := xl.SaveAs(*xlsName); err != nil {

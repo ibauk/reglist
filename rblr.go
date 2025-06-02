@@ -61,7 +61,7 @@ type EntrantRBLR = struct {
 func BuildRBLR(e Entrant) EntrantRBLR {
 
 	const DNS = 0
-	var Routes = map[byte]string{'A': "NCW", 'B': "NAC", 'C': "SCW", 'D': "SAC", 'E': "500CW", 'F': "500AC"}
+	var Routes = map[byte]string{'A': "NCW", 'B': "NAC", 'C': "SCW", 'D': "SAC", 'E': "5CW", 'F': "5AC"}
 	var E EntrantRBLR
 
 	E.EntrantID, _ = strconv.Atoi(e.Entrantid)

@@ -1,5 +1,5 @@
 name: bbl
-year: 24
+year: 25
 afields:
   [
     "EntryId",
@@ -102,4 +102,4 @@ novice: rookie
 add2entrantid: 0
 entrantorder: FinalRiderNumber
 
-csvurl: https://britbuttrally.wufoo.com/export/report/BBL2024.csv
+csvurl: https://britbuttrally.wufoo.com/export/report/BBL2025.csv
