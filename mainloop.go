@@ -179,6 +179,7 @@ func mainloop() {
 		} else if e.PillionFirst+" "+e.PillionLast == e.NokName {
 			fmt.Printf("*** Pillion %v %v [#%v] is the emergency contact (%v)\n", e.PillionFirst, e.PillionLast, e.Entrantid, e.NokRelation)
 			NokPillionClash = true
+			e.NokName = ""
 		}
 
 		if strings.ReplaceAll(e.Phone, " ", "") == strings.ReplaceAll(e.NokPhone, " ", "") {
