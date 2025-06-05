@@ -58,7 +58,7 @@ data in a format suitable for input to a ScoreMaster database and, optionally, a
 a Gmail account.
 `
 
-var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-500C", " F-500AC"}
+var rblr_routes = [...]string{" A-NC", " B-NAC", " C-SC", " D-SAC", " E-5C", " F-5AC"}
 var rblr_routes_ridden = [...]int{0, 0, 0, 0, 0, 0}
 
 // cancelsLoseOut determines whether entrants with Paid=Cancelled lose T-shirts, camping and patches
