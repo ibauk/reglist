@@ -1,4 +1,4 @@
-name: bbl
+name: raf
 year: 25
 afields:
   [
@@ -102,4 +102,6 @@ novice: rookie
 add2entrantid: 0
 entrantorder: FinalRiderNumber
 
-csvurl: https://britbuttrally.wufoo.com/export/report/BBL2025.csv
+csvurl: https://britbuttrally.wufoo.com/export/report/raf25.csv
+
+paymentstatus: ['Completed','Paid','Refunded']
