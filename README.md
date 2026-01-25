@@ -34,6 +34,12 @@ Presents simple statistics relating to various aspects of the event.
 ### Carpark tab
 Intended for "carpark check-out, check-in" use while the *Registration* and *NOK list* tabs provide a more comprehensive checklist.
 
+### Unpaids tab
+Lists details of entrants who remain unpaid
+
+### Food tab
+Records menu choices both individually and summarised
+
 ---
 
 ## Commandline arguments
@@ -48,8 +54,14 @@ Reglist is run from a shell (terminal or cmd) prompt (commandline) and its opera
 **-csv** *filename*
 >Full path of the input .CSV file containing entrant data. The default is **entrants.csv** in the current folder.
 
+**-email** *filename*
+>Path CSV output for generic email
+
 **-exp** *filename*
 >Full path of a .CSV file to be created as input to, *inter alia*, the ScoreMaster rally administration software. This file is in a format standard across all IBAUK events and reflecting any renumbering or data cleansing carried out by Reglist.
+
+**-gmail** *filename*
+>Path to CSV output for Gmail
 
 **-live**
 >Produce a spreadsheet with updateable totals.
@@ -72,8 +84,14 @@ Reglist is run from a shell (terminal or cmd) prompt (commandline) and its opera
 **-sql** *filename*
 >The full path to the SQLite database file used by the process. The default is **entrantdata.db** in the current folder.
 
+**-summary**
+>Produce Summary/overview tabs only
+
 **-xls** *filename*
 >The full path for the resultant spreadsheet. The default is **reglist.xlsx** in the current folder.
+
+**-v**
+>Verbose debugging mode
 
 ---
 
@@ -126,6 +144,12 @@ Further fine control over the output is achieved by the use of configuration fil
 
 **weekly:** *true* / *false*
 >A chart shows entries per period. If this is true, the period is weekly otherwise the period is monthly.
+
+**fooddays** *listofdays*
+>Which days, typically Friday & Sunday, menu choices exist for
+
+**food** *fieldlist*
+>List of fields holding entrant's menu choices
 
 ---
 

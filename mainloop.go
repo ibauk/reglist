@@ -10,6 +10,18 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+func buildFoodTotals(food string, day string) {
+
+	if food == "" {
+		return
+	}
+	n, ok := FoodTotals[day][food]
+	if ok {
+		FoodTotals[day][food] = n + 1
+	} else {
+		FoodTotals[day][food] = 1
+	}
+}
 func mainloop() {
 
 	//fmt.Println(sqlx)
@@ -72,7 +84,7 @@ func mainloop() {
 				&Bike, &T1, &T2,
 				&Mobile, &NokName, &NokNumber, &NokRelation, &entrantid, &PayTot, &Paid, &novicerider, &novicepillion, &odocounts,
 				&e.BikeReg, &e.Address1, &e.Address2, &e.Town, &e.County, &e.Postcode, &e.Country,
-				&e.Email, &e.Phone, &e.EnteredDate, &withdrawn, &hasPillionVal)
+				&e.Email, &e.Phone, &e.EnteredDate, &withdrawn, &hasPillionVal, &e.RiderFriday, &e.RiderSunday, &e.PillionFriday, &e.PillionSunday)
 		}
 		if err2 != nil {
 			log.Fatalf("mainloop/err2 %v\n", err2)
@@ -322,6 +334,9 @@ func mainloop() {
 				xl.SetCellInt(shopsheet, "A"+totx.srowx, entrantid)
 			}
 			xl.SetCellInt(chksheet, "A"+totx.srowx, entrantid)
+			if len(cfg.FoodChoices) > 0 {
+				xl.SetCellInt(foodsheet, "A"+totx.srowx, entrantid)
+			}
 
 		}
 		// Rider names
@@ -350,6 +365,26 @@ func mainloop() {
 			//}
 			if len(odocounts) > 0 && odocounts[0] == 'K' {
 				xl.SetCellValue(chksheet, "D"+totx.srowx, "kms")
+			}
+			if len(cfg.FoodChoices) > 0 {
+				if PillionFirst != "" || PillionLast != "" && false {
+					xl.SetRowHeight(foodsheet, totx.srow, 26)
+				} else {
+					//xl.SetRowHeight(foodsheet, totx.srow, 12)
+				}
+				xl.SetRowHeight(foodsheet, totx.srow, 30)
+				xn := ""
+				if PillionFirst != "" || PillionLast != "" {
+					xn = "\n"
+				}
+				xl.SetCellValue(foodsheet, "B"+totx.srowx, RiderFirst+xn+PillionFirst)
+				xl.SetCellValue(foodsheet, "C"+totx.srowx, RiderLast+xn+PillionLast)
+				xl.SetCellValue(foodsheet, "E"+totx.srowx, e.RiderFriday+xn+e.PillionFriday)
+				xl.SetCellValue(foodsheet, "F"+totx.srowx, e.RiderSunday+xn+e.PillionSunday)
+				buildFoodTotals(e.RiderFriday, "Friday")
+				buildFoodTotals(e.RiderSunday, "Sunday")
+				buildFoodTotals(e.PillionFriday, "Friday")
+				buildFoodTotals(e.PillionSunday, "Sunday")
 			}
 
 		}

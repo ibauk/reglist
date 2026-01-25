@@ -71,6 +71,14 @@ func init() {
 	} else {
 		fmt.Printf("Running in rally mode, %v\n", sm)
 		sqlx = sqlx_rally
+		if len(cfg.FoodChoices) > 0 {
+			sqlx += sqlx_rally_food
+		} else {
+			sqlx += sqlx_rally_nofood
+		}
+		FoodTotals = make(foodTotalsDay)
+		FoodTotals["Friday"] = make(foodTotals)
+		FoodTotals["Sunday"] = make(foodTotals)
 	}
 	sqlx = "SELECT " + sqlx + " FROM entrants"
 	if len(cfg.PaymentStatus) != 0 {

@@ -50,7 +50,7 @@ var allTabs *bool = flag.Bool("full", false, "Generate all tabs")
 var showusage *bool = flag.Bool("?", false, "Show this help")
 var verbose *bool = flag.Bool("v", false, "Verbose mode, debugging")
 
-const apptitle = "IBAUK Reglist v1.33\nCopyright (c) 2025 Bob Stammers\n\n"
+const apptitle = "IBAUK Reglist v1.34\nCopyright (c) 2026 Bob Stammers\n\n"
 const progdesc = `I parse and enhance rally entrant records in CSV format downloaded from Wufoo forms either 
 using the admin interface or one of the reports. I output a spreadsheet in XLSX format of
 the records presented in various useful ways and, optionally, a CSV containing the enhanced
@@ -89,6 +89,7 @@ var totsheet string = "Sheet1" // Renamed on init
 var chksheet string = "Carpark"
 var regsheet string = "Registration"
 var shopsheet string = "Shop"
+var foodsheet string = "Food"
 
 const sqlx_rblr = `ifnull(RiderName,''),ifnull(RiderLast,''),ifnull(RiderIBANumber,''),ifnull(RiderRBL,''),
 ifnull(PillionName,''),ifnull(PillionLast,''),ifnull(PillionIBANumber,''),ifnull(PillionRBL,''),
@@ -115,6 +116,9 @@ ifnull(NoviceRider,''),ifnull(NovicePillion,''),ifnull(odometer_counts,''),ifnul
 ifnull(Address1,''),ifnull(Address2,''),ifnull(Town,''),ifnull(County,''),
 ifnull(Postcode,''),ifnull(Country,''),ifnull(Email,''),ifnull(Mobilephone,''),
 ifnull(Date_Created,''),ifnull(Withdrawn,''),ifnull(HasPillion,'')`
+
+const sqlx_rally_food = `,ifnull(Friday_food,''),ifnull(Sunday_food,''),ifnull(Pillion_Friday,''),ifnull(Pillion_Sunday,'')`
+const sqlx_rally_nofood = `,'','','',''`
 
 var sqlx string
 
@@ -475,6 +479,11 @@ func initSpreadsheet() {
 		}
 		xl.NewSheet(chksheet)
 		formatSheet(chksheet, true)
+		fmt.Printf("Food choices (%v) are %v\n", len(cfg.FoodChoices), cfg.FoodChoices)
+		if len(cfg.FoodChoices) > 0 {
+			xl.NewSheet(foodsheet)
+			formatSheet(foodsheet, false)
+		}
 	}
 	renameSheet(&totsheet, "Stats")
 
@@ -519,6 +528,10 @@ func initSpreadsheet() {
 
 		if includeShopTab {
 			xl.SetCellStyle(shopsheet, "A1", shop_patch_column+"1", styleH2)
+		}
+		if len(cfg.FoodChoices) > 0 {
+			xl.SetCellStyle(foodsheet, "A1", "I1", styleH2L)
+
 		}
 	}
 
@@ -1013,10 +1026,39 @@ func setTabFormats() {
 		setPagePane(shopsheet)
 	}
 
+	if !*summaryOnly && len(cfg.FoodChoices) > 0 {
+		setPageTitle(foodsheet)
+		setPagePane(foodsheet)
+	}
+
 	markCancelledEntrants()
 }
 
+func writeFoodTotals() {
+
+	srow := 2 // Start here
+
+	for day := range FoodTotals {
+		srow++
+		srowx := strconv.Itoa(srow)
+		xl.SetCellValue(foodsheet, "G"+srowx, day)
+		for food := range FoodTotals[day] {
+			srow++
+			srowx = strconv.Itoa(srow)
+			xl.SetCellValue(foodsheet, "G"+srowx, food)
+			xl.SetCellInt(foodsheet, "H"+srowx, FoodTotals[day][food])
+		}
+		srow++
+	}
+}
+
 func writeTotals() {
+
+	//fmt.Printf("%v\n", FoodTotals)
+
+	if cfg.Rally != "rblr" && len(cfg.FoodChoices) > 0 {
+		writeFoodTotals()
+	}
 
 	reportEntriesByPeriod()
 
@@ -1309,6 +1351,21 @@ func writeTotals() {
 			xl.SetCellValue(shopsheet, "C1", "Rider(last)")
 			xl.SetColWidth(shopsheet, "B", "I", 12)
 			xl.SetColWidth(shopsheet, "C", "C", 18)
+		}
+
+		if len(cfg.FoodChoices) > 0 {
+			xl.SetCellValue(foodsheet, "A1", "No.")
+			xl.SetColWidth(foodsheet, "A", "A", 5)
+			xl.SetCellValue(foodsheet, "B1", "Rider(first)")
+			xl.SetCellValue(foodsheet, "C1", "Rider(last)")
+			xl.SetCellValue(foodsheet, "E1", "Friday")
+			xl.SetCellValue(foodsheet, "F1", "Sunday")
+			xl.SetColWidth(foodsheet, "B", "F", 12)
+			xl.SetColWidth(foodsheet, "C", "C", 14)
+			xl.SetColWidth(foodsheet, "E", "F", 30)
+			xl.SetColWidth(foodsheet, "D", "D", 2)
+			xl.SetColWidth(foodsheet, "G", "G", 30)
+
 		}
 	}
 

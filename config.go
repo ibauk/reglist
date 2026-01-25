@@ -70,6 +70,7 @@ type Config struct {
 	FreeCamping   string   `yaml:"freecamping"`
 	RBLRDB        string   `yaml:"rblrdb"`
 	PaymentStatus []string `yaml:"paymentstatus"`
+	FoodChoices   []string `yaml:"food"`
 }
 
 // NewConfig returns a new decoded Config struct

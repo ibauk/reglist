@@ -1,5 +1,6 @@
 name: raf
 year: 25
+csvurl: https://britbuttrally.wufoo.com/export/report/raf25.csv
 afields:
   [
     "EntryId",
@@ -102,6 +103,5 @@ novice: rookie
 add2entrantid: 0
 entrantorder: FinalRiderNumber
 
-csvurl: https://britbuttrally.wufoo.com/export/report/raf25.csv
 
 paymentstatus: ['Completed','Paid','Refunded']

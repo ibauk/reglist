@@ -26,6 +26,11 @@ type Entrystats struct {
 	NumRBLBranch int
 }
 
+type foodTotals map[string]int
+type foodTotalsDay map[string]foodTotals
+
+var FoodTotals foodTotalsDay
+
 type Totals struct {
 	NumRiders          int
 	NumPillions        int
@@ -115,6 +120,10 @@ type Entrant struct {
 	PPostcode        string
 	PCountry         string
 	Sponsorship      string
+	RiderFriday      string
+	RiderSunday      string
+	PillionFriday    string
+	PillionSunday    string
 }
 
 func EntrantHeaders() []string {
